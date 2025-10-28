@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace OpenPolicyAgent.Opa.Authorization.Tests;
 
@@ -100,11 +100,12 @@ public class OpaResponseTests
         var json = @"{""allow"": true, ""reason"": ""Access granted""}";
 
         // Act
-        var response = JsonConvert.DeserializeObject<OpaResponse>(json);
+        var response = JsonSerializer.Deserialize<OpaResponse>(json);
 
         // Assert
         Assert.NotNull(response);
         Assert.True(response.Decision);
-        Assert.Equal("Access granted", response.Reason);
+        Assert.NotNull(response.Reason);
+        Assert.Equal("Access granted", response.Reason.ToString());
     }
 }

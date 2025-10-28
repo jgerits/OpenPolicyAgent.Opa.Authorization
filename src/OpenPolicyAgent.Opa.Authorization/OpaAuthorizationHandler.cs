@@ -1,9 +1,9 @@
 using System.Linq;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using OpenPolicyAgent.Opa;
 
 namespace OpenPolicyAgent.Opa.Authorization;
@@ -86,7 +86,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         {
             // Build OPA input
             var input = BuildOpaInput(httpContext, context, extraInformation);
-            _logger.LogTrace("OPA input for request: {Input}", JsonConvert.SerializeObject(input));
+            _logger.LogTrace("OPA input for request: {Input}", JsonSerializer.Serialize(input));
 
             // Evaluate OPA policy
             OpaResponse? response;
@@ -108,7 +108,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
                 return;
             }
 
-            _logger.LogTrace("OPA response: {Response}", JsonConvert.SerializeObject(response));
+            _logger.LogTrace("OPA response: {Response}", JsonSerializer.Serialize(response));
 
             // Check authorization decision
             if (response.Decision)
@@ -141,9 +141,17 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
     {
         var subjectId = authContext.User.Identity?.Name ?? "";
-        var subjectClaims = JsonConvert.DeserializeObject(
-            JsonConvert.SerializeObject(authContext.User.Claims, 
-                new JsonSerializerSettings { ReferenceLoopHandling = ReferenceLoopHandling.Ignore })) ?? new { };
+        
+        // Convert claims to a serializable format
+        var claimsList = authContext.User.Claims.Select(c => new 
+        { 
+            type = c.Type, 
+            value = c.Value,
+            valueType = c.ValueType,
+            issuer = c.Issuer
+        }).ToList();
+        
+        var subjectClaims = claimsList as object ?? new { };
 
         string resourceId = httpContext.Request.Path;
         string actionName = httpContext.Request.Method;

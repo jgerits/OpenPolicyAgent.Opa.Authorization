@@ -74,14 +74,19 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             return;
         }
 
+        // Try to get OpaAuthorize attribute from endpoint metadata
+        var endpoint = httpContext.GetEndpoint();
+        var opaAttribute = endpoint?.Metadata.GetMetadata<OpaAuthorizeAttribute>();
+        
+        // Use attribute values if available, otherwise use requirement values
+        var policyPath = opaAttribute?.PolicyPath ?? requirement.PolicyPath ?? _options.DefaultPolicyPath;
+        var extraInformation = opaAttribute?.ExtraInformation ?? requirement.ExtraInformation;
+
         try
         {
             // Build OPA input
-            var input = BuildOpaInput(httpContext, context);
+            var input = BuildOpaInput(httpContext, context, extraInformation);
             _logger.LogTrace("OPA input for request: {Input}", JsonConvert.SerializeObject(input));
-
-            // Determine policy path
-            var policyPath = requirement.PolicyPath ?? _options.DefaultPolicyPath;
 
             // Evaluate OPA policy
             OpaResponse? response;
@@ -133,7 +138,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     /// <summary>
     /// Builds the input object for OPA policy evaluation.
     /// </summary>
-    private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext)
+    private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
     {
         var subjectId = authContext.User.Identity?.Name ?? "";
         var subjectClaims = JsonConvert.DeserializeObject(
@@ -164,6 +169,12 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         {
             object contextData = _contextDataProvider.GetContextData(httpContext);
             ctx.Add("data", contextData);
+        }
+
+        // Add extra information if available
+        if (!string.IsNullOrEmpty(extraInformation))
+        {
+            ctx.Add("metadata", extraInformation);
         }
 
         Dictionary<string, object> input = new Dictionary<string, object>

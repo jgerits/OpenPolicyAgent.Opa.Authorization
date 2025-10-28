@@ -50,8 +50,9 @@ public class DocumentsController : ControllerBase
 
     /// <summary>
     /// Create a new document. Only admins should be allowed by OPA policy.
+    /// Includes extra metadata that can be used in the OPA policy.
     /// </summary>
-    [OpaAuthorize]
+    [OpaAuthorize("authz/allow", "CreateDocument")]
     [HttpPost]
     public IActionResult Create([FromBody] CreateDocumentRequest request)
     {
@@ -71,8 +72,9 @@ public class DocumentsController : ControllerBase
 
     /// <summary>
     /// Delete a document. Only admins should be allowed by OPA policy.
+    /// Includes extra metadata for sensitive operations.
     /// </summary>
-    [OpaAuthorize]
+    [OpaAuthorize("authz/allow", "DeleteDocument")]
     [HttpDelete("{id}")]
     public IActionResult Delete(int id)
     {

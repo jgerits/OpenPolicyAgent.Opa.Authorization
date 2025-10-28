@@ -100,7 +100,13 @@ public IActionResult GetAll() { ... }
 [OpaAuthorize("authz/documents/read")]  // Uses custom policy path
 [HttpGet("{id}")]
 public IActionResult GetById(int id) { ... }
+
+[OpaAuthorize("authz/allow", "CreateDocument")]  // With extra metadata
+[HttpPost]
+public IActionResult Create([FromBody] CreateDocumentRequest request) { ... }
 ```
+
+The extra information parameter (second parameter) is available in OPA policies as `input.context.metadata`.
 
 ### 3. OPA Policies
 

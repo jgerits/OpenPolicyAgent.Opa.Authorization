@@ -1,0 +1,202 @@
+---
+name: CI/CD Pipeline
+
+permissions:
+  contents: write
+  
+'on':
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - 'samples/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches: [main, master]
+  release:
+    types: [published]
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    name: Build and Test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Create NuGet packages
+        if: github.event_name != 'pull_request'
+        run: dotnet pack --configuration Release --no-build --output ./artifacts
+
+      - name: Upload package artifacts
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: ./artifacts/*.nupkg
+          retention-days: 30
+
+  auto-release:
+    runs-on: ubuntu-latest
+    name: Auto Release
+    needs: build-and-test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for relevant changes
+        id: check_changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "Changed files: $CHANGED_FILES"
+          
+          RELEVANT_CHANGE=false
+          RELEVANT_PATTERNS=(
+            "^src/.*\.cs$"
+            "^src/.*\.csproj$"
+          )
+          
+          for file in $CHANGED_FILES; do
+            for pattern in "${RELEVANT_PATTERNS[@]}"; do
+              if echo "$file" | grep -qE "$pattern"; then
+                RELEVANT_CHANGE=true
+                echo "Found relevant change: $file"
+                break 2
+              fi
+            done
+          done
+          
+          echo "relevant=$RELEVANT_CHANGE" >> $GITHUB_OUTPUT
+          
+          if [ "$RELEVANT_CHANGE" = "false" ]; then
+            echo "No relevant changes detected. Skipping release."
+          else
+            echo "Relevant changes detected. Proceeding with checks."
+          fi
+
+      - name: Setup .NET
+        if: steps.check_changes.outputs.relevant == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Get package metadata
+        if: steps.check_changes.outputs.relevant == 'true'
+        id: meta
+        run: |
+          CSPROJ="src/OpenPolicyAgent.Opa.Authorization/OpenPolicyAgent.Opa.Authorization.csproj"
+
+          CURRENT_VERSION=$(grep -o '<Version>[^<]*</Version>' "$CSPROJ" | sed 's/<Version>\(.*\)<\/Version>/\1/')
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "Could not determine <Version> from $CSPROJ"
+            exit 1
+          fi
+
+          PACKAGE_ID=$(grep -o '<PackageId>[^<]*</PackageId>' "$CSPROJ" | sed 's/<PackageId>\(.*\)<\/PackageId>/\1/')
+          if [ -z "$PACKAGE_ID" ]; then
+            # Fallback to project name when <PackageId> is not specified
+            PACKAGE_ID="OpenPolicyAgent.Opa.Authorization"
+          fi
+
+          echo "Current version: $CURRENT_VERSION"
+          echo "Package ID: $PACKAGE_ID"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "package_id=$PACKAGE_ID" >> $GITHUB_OUTPUT
+
+      - name: Check if GitHub release exists for current version
+        if: steps.check_changes.outputs.relevant == 'true'
+        id: release_check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ steps.meta.outputs.version }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release $TAG exists."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG does not exist."
+          fi
+
+      - name: Check if version exists on NuGet
+        if: steps.check_changes.outputs.relevant == 'true'
+        id: nuget_check
+        run: |
+          PACKAGE_ID="${{ steps.meta.outputs.package_id }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          LOWER_ID=$(echo "$PACKAGE_ID" | tr '[:upper:]' '[:lower:]')
+
+          STATUS=$(curl -s -o /tmp/index.json -w "%{http_code}" "https://api.nuget.org/v3-flatcontainer/$LOWER_ID/index.json" 2>&1 || echo "000")
+          echo "NuGet API returned status: $STATUS"
+          if [ "$STATUS" = "200" ] && grep -q "\"$VERSION\"" /tmp/index.json 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "NuGet package $PACKAGE_ID version $VERSION exists."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "NuGet package $PACKAGE_ID version $VERSION does not exist."
+          fi
+
+      - name: Restore dependencies
+        if: steps.check_changes.outputs.relevant == 'true' && (steps.release_check.outputs.exists == 'false' || steps.nuget_check.outputs.exists == 'false')
+        run: dotnet restore
+
+      - name: Build solution
+        if: steps.check_changes.outputs.relevant == 'true' && (steps.release_check.outputs.exists == 'false' || steps.nuget_check.outputs.exists == 'false')
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        if: steps.check_changes.outputs.relevant == 'true' && (steps.release_check.outputs.exists == 'false' || steps.nuget_check.outputs.exists == 'false')
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Create NuGet package
+        if: steps.check_changes.outputs.relevant == 'true' && (steps.release_check.outputs.exists == 'false' || steps.nuget_check.outputs.exists == 'false')
+        run: dotnet pack --configuration Release --no-build --output ./artifacts
+
+      # No version bump or commit. We only act on the existing version.
+
+      - name: Publish to NuGet (only if missing)
+        if: steps.check_changes.outputs.relevant == 'true' && steps.nuget_check.outputs.exists == 'false'
+        run: |
+          dotnet nuget push ./artifacts/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Create GitHub Release (only if missing)
+        if: steps.check_changes.outputs.relevant == 'true' && steps.release_check.outputs.exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.meta.outputs.version }}"
+          gh release create "v$NEW_VERSION" \
+            --title "Release v$NEW_VERSION" \
+            --notes "Auto-generated release for version $NEW_VERSION
+
+          This release was automatically created from the latest commit to the main branch." \
+            ./artifacts/*.nupkg

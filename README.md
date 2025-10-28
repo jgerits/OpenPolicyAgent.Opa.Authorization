@@ -79,8 +79,8 @@ public class DocumentsController : ControllerBase
         return Ok($"document{id}");
     }
 
-    // Only allows if OPA policy returns true
-    [OpaAuthorize]
+    // Includes extra information (available as input.context.metadata in OPA)
+    [OpaAuthorize("authz/documents/allow", "AdminOperation")]
     [HttpPost]
     public IActionResult Create([FromBody] object document)
     {
@@ -201,10 +201,13 @@ The package sends the following input to OPA:
     "host": "<request host>",
     "ip": "<remote IP address>",
     "port": <remote port>,
-    "data": {/* custom context data, if provider registered */}
+    "data": {/* custom context data, if provider registered */},
+    "metadata": "<extra information from attribute, if provided>"
   }
 }
 ```
+
+**Note**: The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
 
 ## OPA Response Schema
 

@@ -13,11 +13,18 @@ public class OpaAuthorizationRequirement : IAuthorizationRequirement
     public string? PolicyPath { get; }
 
     /// <summary>
+    /// Gets the extra information to include in the OPA policy evaluation.
+    /// </summary>
+    public string? ExtraInformation { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="OpaAuthorizationRequirement"/> class.
     /// </summary>
     /// <param name="policyPath">The optional OPA policy path to evaluate.</param>
-    public OpaAuthorizationRequirement(string? policyPath = null)
+    /// <param name="extraInformation">Optional extra information to include in the policy evaluation.</param>
+    public OpaAuthorizationRequirement(string? policyPath = null, string? extraInformation = null)
     {
         PolicyPath = policyPath;
+        ExtraInformation = extraInformation;
     }
 }

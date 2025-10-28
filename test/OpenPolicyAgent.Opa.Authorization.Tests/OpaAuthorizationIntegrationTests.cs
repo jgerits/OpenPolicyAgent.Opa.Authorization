@@ -1,17 +1,9 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using System.Net;
-using System.Net.Http.Headers;
-using System.Security.Claims;
 using Xunit;
 
 namespace OpenPolicyAgent.Opa.Authorization.Tests;
 
 /// <summary>
-/// Integration tests that validate the OPA authorization configuration and service registration.
+/// Unit tests that validate the OPA authorization configuration and service registration.
 /// </summary>
 public class OpaAuthorizationIntegrationTests
 {

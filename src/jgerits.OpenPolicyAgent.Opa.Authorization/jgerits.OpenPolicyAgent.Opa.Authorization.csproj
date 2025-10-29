@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>jgerits.OpenPolicyAgent.Opa.Authorization</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>jgerits</Authors>
+    <Description>Attribute-based authorization for ASP.NET Core using Open Policy Agent (OPA). This package provides an [OpaAuthorize] attribute for controllers and methods to enable policy-based authorization decisions. This is an alternative package ID for the same library.</Description>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>1591</NoWarn>
+    <RepositoryUrl>https://github.com/jgerits/OpenPolicyAgent.Opa.Authorization</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/jgerits/OpenPolicyAgent.Opa.Authorization</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>opa;open-policy-agent;authorization;aspnetcore;security;policy;jgerits</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="OpenPolicyAgent.Opa" Version="1.6.6" />
+  </ItemGroup>
+
+  <!-- Include all source files from the main project -->
+  <ItemGroup>
+    <Compile Include="..\OpenPolicyAgent.Opa.Authorization\*.cs" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

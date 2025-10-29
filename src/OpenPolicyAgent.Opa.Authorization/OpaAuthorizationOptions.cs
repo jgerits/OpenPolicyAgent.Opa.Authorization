@@ -28,4 +28,10 @@ public class OpaAuthorizationOptions
     /// If false (default), unauthenticated requests are automatically denied.
     /// </summary>
     public bool AllowUnauthenticated { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the timeout for OPA policy evaluation requests in seconds.
+    /// Default is 30 seconds.
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 30;
 }

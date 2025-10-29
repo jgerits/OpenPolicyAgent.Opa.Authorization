@@ -72,4 +72,37 @@ public static class OpaAuthorizationServiceCollectionExtensions
         services.TryAddSingleton<IOpaContextDataProvider, TProvider>();
         return services;
     }
+
+    /// <summary>
+    /// Adds a custom async context data provider for OPA authorization.
+    /// </summary>
+    /// <typeparam name="TProvider">The type of the async context data provider.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddOpaAsyncContextDataProvider<TProvider>(this IServiceCollection services)
+        where TProvider : class, IOpaAsyncContextDataProvider
+    {
+        services.TryAddSingleton<IOpaAsyncContextDataProvider, TProvider>();
+        return services;
+    }
+
+    /// <summary>
+    /// Adds OPA health check to the health check builder.
+    /// </summary>
+    /// <param name="builder">The health checks builder.</param>
+    /// <param name="name">The health check name. Default is "opa".</param>
+    /// <param name="failureStatus">The failure status. Default is Unhealthy.</param>
+    /// <param name="tags">The health check tags.</param>
+    /// <returns>The health checks builder.</returns>
+    public static Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder AddOpaHealthCheck(
+        this Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder builder,
+        string? name = null,
+        Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck<OpaHealthCheck>(
+            name ?? "opa",
+            failureStatus,
+            tags ?? Array.Empty<string>());
+    }
 }

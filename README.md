@@ -142,6 +142,9 @@ builder.Services.AddOpaAuthorization(options =>
 
     // Allow unauthenticated requests (default: false)
     options.AllowUnauthenticated = false;
+
+    // Timeout for OPA policy evaluation in seconds (default: 30)
+    options.TimeoutSeconds = 30;
 });
 ```
 
@@ -156,6 +159,8 @@ export OPA_URL=http://opa-server:8181
 ## Custom Context Data Provider
 
 Inject additional context data into OPA evaluation:
+
+### Synchronous Provider
 
 ```csharp
 public class CustomContextDataProvider : IOpaContextDataProvider
@@ -172,6 +177,38 @@ public class CustomContextDataProvider : IOpaContextDataProvider
 
 // Register the provider
 builder.Services.AddOpaContextDataProvider<CustomContextDataProvider>();
+```
+
+### Asynchronous Provider
+
+For context data that requires async operations (e.g., database lookups):
+
+```csharp
+public class AsyncContextDataProvider : IOpaAsyncContextDataProvider
+{
+    private readonly IDatabase _database;
+
+    public AsyncContextDataProvider(IDatabase database)
+    {
+        _database = database;
+    }
+
+    public async Task<object> GetContextDataAsync(HttpContext context, CancellationToken cancellationToken = default)
+    {
+        var userId = context.User.Identity?.Name;
+        var userPermissions = await _database.GetUserPermissionsAsync(userId, cancellationToken);
+        
+        return new
+        {
+            tenant_id = context.Request.Headers["X-Tenant-Id"].ToString(),
+            request_time = DateTime.UtcNow,
+            user_permissions = userPermissions
+        };
+    }
+}
+
+// Register the async provider
+builder.Services.AddOpaAsyncContextDataProvider<AsyncContextDataProvider>();
 ```
 
 This data will be available under `input.context.data` in your OPA policy.
@@ -219,6 +256,23 @@ The package expects the following response from OPA:
   "reason": "Access granted" // or {"en": "Access granted", "es": "Acceso concedido"}
 }
 ```
+
+## Health Checks
+
+Add OPA health checks to monitor your OPA server connectivity:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddOpaHealthCheck(
+        name: "opa",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: new[] { "opa", "authorization" });
+
+// In your app configuration
+app.MapHealthChecks("/health");
+```
+
+The health check will verify that the OPA server is reachable and responsive.
 
 ## Examples
 

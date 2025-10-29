@@ -18,6 +18,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     private readonly ILogger<OpaAuthorizationHandler> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOpaContextDataProvider? _contextDataProvider;
+    private readonly IOpaAsyncContextDataProvider? _asyncContextDataProvider;
 
     private const string SubjectType = "aspnetcore_authentication";
     private const string RequestResourceType = "endpoint";
@@ -30,19 +31,30 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     /// <param name="httpContextAccessor">The HTTP context accessor.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="contextDataProvider">Optional context data provider.</param>
+    /// <param name="asyncContextDataProvider">Optional async context data provider.</param>
     public OpaAuthorizationHandler(
         IOptions<OpaAuthorizationOptions> options,
         IHttpContextAccessor httpContextAccessor,
         ILogger<OpaAuthorizationHandler> logger,
-        IOpaContextDataProvider? contextDataProvider = null)
+        IOpaContextDataProvider? contextDataProvider = null,
+        IOpaAsyncContextDataProvider? asyncContextDataProvider = null)
     {
-        _options = options.Value;
-        _httpContextAccessor = httpContextAccessor;
-        _logger = logger;
+        _options = options.Value ?? throw new ArgumentNullException(nameof(options));
+        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _contextDataProvider = contextDataProvider;
+        _asyncContextDataProvider = asyncContextDataProvider;
 
         // Initialize OPA client
         var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
+        
+        // Validate OPA URL format
+        if (!Uri.TryCreate(opaUrl, UriKind.Absolute, out var uri) || 
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException($"Invalid OPA URL: {opaUrl}. Must be a valid HTTP or HTTPS URL.", nameof(options));
+        }
+        
         _opaClient = new OpaClient(opaUrl);
 
         _logger.LogInformation("OpaAuthorizationHandler initialized with OPA URL: {OpaUrl}", opaUrl);
@@ -85,7 +97,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         try
         {
             // Build OPA input
-            var input = BuildOpaInput(httpContext, context, extraInformation);
+            var input = await BuildOpaInputAsync(httpContext, context, extraInformation);
             _logger.LogTrace("OPA input for request: {Input}", JsonSerializer.Serialize(input));
 
             // Evaluate OPA policy
@@ -136,9 +148,9 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     }
 
     /// <summary>
-    /// Builds the input object for OPA policy evaluation.
+    /// Builds the input object for OPA policy evaluation asynchronously.
     /// </summary>
-    private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
+    private async Task<Dictionary<string, object>> BuildOpaInputAsync(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
     {
         var subjectId = authContext.User.Identity?.Name ?? "";
         
@@ -151,7 +163,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             issuer = c.Issuer
         }).ToList();
         
-        var subjectClaims = claimsList as object ?? new { };
+        object subjectClaims = claimsList;
 
         string resourceId = httpContext.Request.Path;
         string actionName = httpContext.Request.Method;
@@ -173,7 +185,13 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         };
 
         // Add custom context data if provider is available
-        if (_contextDataProvider != null)
+        // Prefer async provider over sync provider
+        if (_asyncContextDataProvider != null)
+        {
+            object contextData = await _asyncContextDataProvider.GetContextDataAsync(httpContext);
+            ctx.Add("data", contextData);
+        }
+        else if (_contextDataProvider != null)
         {
             object contextData = _contextDataProvider.GetContextData(httpContext);
             ctx.Add("data", contextData);

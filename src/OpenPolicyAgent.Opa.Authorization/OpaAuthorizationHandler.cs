@@ -96,8 +96,8 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
 
         try
         {
-            // Build OPA input
-            var input = await BuildOpaInputAsync(httpContext, context, extraInformation);
+            // Build OPA input with cancellation support
+            var input = await BuildOpaInputAsync(httpContext, context, extraInformation, httpContext.RequestAborted);
             _logger.LogTrace("OPA input for request: {Input}", JsonSerializer.Serialize(input));
 
             // Evaluate OPA policy
@@ -150,7 +150,11 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     /// <summary>
     /// Builds the input object for OPA policy evaluation asynchronously.
     /// </summary>
-    private async Task<Dictionary<string, object>> BuildOpaInputAsync(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
+    private async Task<Dictionary<string, object>> BuildOpaInputAsync(
+        HttpContext httpContext, 
+        AuthorizationHandlerContext authContext, 
+        string? extraInformation,
+        CancellationToken cancellationToken = default)
     {
         var subjectId = authContext.User.Identity?.Name ?? "";
         
@@ -188,7 +192,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         // Prefer async provider over sync provider
         if (_asyncContextDataProvider != null)
         {
-            object contextData = await _asyncContextDataProvider.GetContextDataAsync(httpContext);
+            object contextData = await _asyncContextDataProvider.GetContextDataAsync(httpContext, cancellationToken);
             ctx.Add("data", contextData);
         }
         else if (_contextDataProvider != null)

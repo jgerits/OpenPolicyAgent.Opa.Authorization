@@ -35,20 +35,28 @@ public class OpaHealthCheck : IHealthCheck
     {
         try
         {
-            // Simple health check - try to evaluate a minimal policy
-            var input = new { test = true };
+            // Create a simple test input
+            var input = new { healthCheck = true };
             
-            // Use a very simple test policy path that should always exist
-            // Or check OPA's health endpoint if available
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(5));
             
-            // Try to reach OPA server
-            // Note: This is a basic connectivity check
-            // In production, you might want to check a specific health endpoint
-            await Task.Delay(1, cts.Token);
-            
-            return HealthCheckResult.Healthy("OPA server is reachable");
+            // Try to evaluate a simple policy to verify OPA connectivity
+            // Use a generic "health" path or default path
+            // This will fail fast if OPA is not reachable
+            try
+            {
+                // Attempt to call OPA - even if the policy doesn't exist, 
+                // a reachable OPA server will respond (with 404 or valid response)
+                await _opaClient.Evaluate<object>("health", input);
+                
+                return HealthCheckResult.Healthy("OPA server is reachable and responding");
+            }
+            catch (OpaException ex) when (ex.Message.Contains("404") || ex.Message.Contains("not found"))
+            {
+                // Policy not found is OK - it means OPA is reachable
+                return HealthCheckResult.Healthy("OPA server is reachable (health policy not configured)");
+            }
         }
         catch (OperationCanceledException)
         {

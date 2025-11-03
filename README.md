@@ -8,6 +8,7 @@ A .NET NuGet package that provides attribute-based authorization for ASP.NET Cor
 - **Seamless ASP.NET Core integration**: Works with existing authentication and authorization infrastructure
 - **Policy-based decisions**: Delegate authorization logic to OPA policies
 - **Flexible configuration**: Configure OPA URL, policy paths, and custom context data
+- **Development mode**: Disable OPA authorization for local development and debugging
 - **Compatible with OPA ecosystem**: Built on top of the official [OpenPolicyAgent.Opa](https://www.nuget.org/packages/OpenPolicyAgent.Opa) package
 
 ## Installation
@@ -177,6 +178,11 @@ builder.Services.AddOpaAuthorization(options =>
     options.ExcludedHeaders.Add("Custom-Sensitive-Header");
     // Or clear and start fresh:
     // options.ExcludedHeaders.Clear();
+
+    // Disable OPA authorization entirely (default: false)
+    // When enabled, no calls are made to the OPA server and all authorization attempts are logged locally
+    // Useful for development and debugging
+    options.DisableAuthorization = false;
 });
 ```
 
@@ -187,6 +193,41 @@ You can also configure the OPA URL via environment variable:
 ```bash
 export OPA_URL=http://opa-server:8181
 ```
+
+### Disabling OPA Authorization for Development
+
+During development, you may want to disable OPA authorization entirely to simplify testing and debugging. When disabled, no calls are made to the OPA server, and all authorization attempts are logged locally with information about what would have been sent to OPA.
+
+```csharp
+builder.Services.AddOpaAuthorization(options =>
+{
+    options.DisableAuthorization = true; // Disable OPA entirely
+    options.DefaultPolicyPath = "authz"; // Other options can still be set
+});
+```
+
+**When `DisableAuthorization` is enabled:**
+- No HTTP calls are made to the OPA server
+- All authorization requests automatically succeed
+- Each authorization attempt is logged at `Information` level with:
+  - The resource (request path)
+  - The action (HTTP method)
+  - A message indicating authorization is disabled
+- Configuration validation is skipped (you don't need a valid OPA URL)
+
+**Example log output:**
+```
+[Information] OPA Authorization is DISABLED. All authorization requests will be logged and allowed.
+[Information] OPA Authorization is DISABLED. Resource: /api/documents/123, Action: GET, Decision: Disabled - No authorization performed
+```
+
+**Use cases:**
+- Local development without running an OPA server
+- Testing application functionality without authorization constraints
+- Debugging authorization-related issues
+- CI/CD environments where OPA is not available
+
+**Important:** This option should **never** be enabled in production environments. Always ensure `DisableAuthorization` is set to `false` (or omitted, as it defaults to `false`) in production configurations.
 
 ## Health Check
 

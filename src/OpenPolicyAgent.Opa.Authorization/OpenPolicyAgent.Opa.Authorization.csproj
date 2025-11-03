@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>OpenPolicyAgent.Opa.Authorization</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>jgerits</Authors>
     <Description>Attribute-based authorization for ASP.NET Core using Open Policy Agent (OPA). This package provides an [OpaAuthorize] attribute for controllers and methods to enable policy-based authorization decisions.</Description>
     <TargetFramework>net8.0</TargetFramework>
@@ -28,7 +28,6 @@
   
   <ItemGroup>
     <PackageReference Include="OpenPolicyAgent.Opa" Version="1.6.6" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
 </Project>

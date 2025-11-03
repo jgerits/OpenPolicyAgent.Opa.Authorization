@@ -36,10 +36,25 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         ILogger<OpaAuthorizationHandler> logger,
         IOpaContextDataProvider? contextDataProvider = null)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(httpContextAccessor);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _options = options.Value;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
         _contextDataProvider = contextDataProvider;
+
+        // Validate options
+        try
+        {
+            _options.Validate();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "Invalid OPA authorization configuration");
+            throw;
+        }
 
         // Initialize OPA client
         var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
@@ -86,7 +101,11 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         {
             // Build OPA input
             var input = BuildOpaInput(httpContext, context, extraInformation);
-            _logger.LogTrace("OPA input for request: {Input}", JsonSerializer.Serialize(input));
+            
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("OPA input for request: {Input}", JsonSerializer.Serialize(input));
+            }
 
             // Evaluate OPA policy
             OpaResponse? response;
@@ -108,7 +127,10 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
                 return;
             }
 
-            _logger.LogTrace("OPA response: {Response}", JsonSerializer.Serialize(response));
+            if (_logger.IsEnabled(LogLevel.Debug))
+            {
+                _logger.LogDebug("OPA response: Allow={Decision}", response.Decision);
+            }
 
             // Check authorization decision
             if (response.Decision)
@@ -119,13 +141,24 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             else
             {
                 var reason = response.GetReasonForDecision(_options.ReasonKey) ?? "Access denied by policy";
-                _logger.LogTrace("OPA policy evaluation failed: {Reason}", reason);
+                _logger.LogInformation("OPA policy evaluation failed: {Reason}", reason);
                 context.Fail();
             }
         }
         catch (OpaException ex)
         {
-            _logger.LogError(ex, "Error evaluating OPA policy");
+            _logger.LogError(ex, "Error evaluating OPA policy at path '{PolicyPath}'. Message: {Message}", 
+                policyPath ?? "(default)", ex.Message);
+            context.Fail();
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error communicating with OPA server at {OpaUrl}", _options.OpaUrl);
+            context.Fail();
+        }
+        catch (TaskCanceledException ex)
+        {
+            _logger.LogError(ex, "Timeout communicating with OPA server at {OpaUrl}", _options.OpaUrl);
             context.Fail();
         }
         catch (Exception ex)
@@ -140,6 +173,9 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     /// </summary>
     private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
     {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(authContext);
+
         var subjectId = authContext.User.Identity?.Name ?? "";
         
         // Convert claims to a serializable format
@@ -175,8 +211,18 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         // Add custom context data if provider is available
         if (_contextDataProvider != null)
         {
-            object contextData = _contextDataProvider.GetContextData(httpContext);
-            ctx.Add("data", contextData);
+            try
+            {
+                object contextData = _contextDataProvider.GetContextData(httpContext);
+                if (contextData != null)
+                {
+                    ctx.Add("data", contextData);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error retrieving custom context data from provider");
+            }
         }
 
         // Add extra information if available

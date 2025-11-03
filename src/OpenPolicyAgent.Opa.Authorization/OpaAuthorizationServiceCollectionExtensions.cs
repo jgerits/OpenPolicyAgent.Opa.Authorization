@@ -39,8 +39,21 @@ public static class OpaAuthorizationServiceCollectionExtensions
             throw new ArgumentNullException(nameof(configureOptions));
         }
 
-        // Configure options
+        // Configure options with validation
         services.Configure(configureOptions);
+        services.AddOptions<OpaAuthorizationOptions>()
+            .Validate(options =>
+            {
+                try
+                {
+                    options.Validate();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }, "OpaAuthorizationOptions validation failed. Please check your configuration.");
 
         // Add HttpContextAccessor if not already registered
         services.TryAddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.HttpContextAccessor>();

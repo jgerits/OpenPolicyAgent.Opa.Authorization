@@ -140,4 +140,42 @@ public class OpaResponseTests
         Assert.Equal("Access granted", response.GetReasonForDecision("en"));
         Assert.Equal("Acceso concedido", response.GetReasonForDecision("es"));
     }
+
+    [Fact]
+    public void Deserialization_WithExtraFields_ShouldIgnoreThemAndDeserializeCorrectly()
+    {
+        // Arrange - OPA policies may return extra fields alongside allow and reason
+        var json = @"{
+            ""allow"": true,
+            ""debug_info"": {""opa_version"": ""1.9.0""},
+            ""is_authenticated"": true,
+            ""matched_rules"": [""authenticated_user""],
+            ""reason"": {},
+            ""user_roles"": []
+        }";
+
+        // Act
+        var response = JsonSerializer.Deserialize<OpaResponse>(json);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.True(response.Decision);
+        Assert.NotNull(response.Reason);
+    }
+
+    [Fact]
+    public void Deserialization_WithEmptyReasonObject_ShouldReturnNullReason()
+    {
+        // Arrange
+        var json = @"{""allow"": true, ""reason"": {}}";
+
+        // Act
+        var response = JsonSerializer.Deserialize<OpaResponse>(json);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.True(response.Decision);
+        Assert.NotNull(response.Reason); // Reason object exists
+        Assert.Null(response.GetReasonForDecision()); // But GetReasonForDecision returns null for empty dict
+    }
 }

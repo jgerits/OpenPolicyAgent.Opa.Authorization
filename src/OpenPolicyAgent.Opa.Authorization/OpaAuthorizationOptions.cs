@@ -28,4 +28,11 @@ public class OpaAuthorizationOptions
     /// If false (default), unauthenticated requests are automatically denied.
     /// </summary>
     public bool AllowUnauthenticated { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets whether to include the authorization token in the OPA input.
+    /// If true, the Authorization header value will be included in the input sent to OPA.
+    /// Default is false for backward compatibility.
+    /// </summary>
+    public bool IncludeAuthorizationToken { get; set; } = false;
 }

@@ -29,7 +29,7 @@ public class OpaAuthorizationOptionsValidationTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
-        Assert.Contains("OpaUrl cannot be null", exception.Message);
+        Assert.Contains("OpaUrl cannot be null or whitespace", exception.Message);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class OpaAuthorizationOptionsValidationTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
-        Assert.Contains("OpaUrl cannot be null", exception.Message);
+        Assert.Contains("OpaUrl cannot be null or whitespace", exception.Message);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class OpaAuthorizationOptionsValidationTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
-        Assert.Contains("OpaUrl cannot be null", exception.Message);
+        Assert.Contains("OpaUrl cannot be null or whitespace", exception.Message);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class OpaAuthorizationOptionsValidationTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
-        Assert.Contains("ReasonKey cannot be null", exception.Message);
+        Assert.Contains("ReasonKey cannot be null or whitespace", exception.Message);
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class OpaAuthorizationOptionsValidationTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() => options.Validate());
-        Assert.Contains("ReasonKey cannot be null", exception.Message);
+        Assert.Contains("ReasonKey cannot be null or whitespace", exception.Message);
     }
 
     [Fact]

@@ -142,6 +142,10 @@ builder.Services.AddOpaAuthorization(options =>
 
     // Allow unauthenticated requests (default: false)
     options.AllowUnauthenticated = false;
+
+    // Include authorization token in OPA input (default: false)
+    // When enabled, the Authorization header value is included in input.subject.token
+    options.IncludeAuthorizationToken = false;
 });
 ```
 
@@ -185,7 +189,8 @@ The package sends the following input to OPA:
   "subject": {
     "type": "aspnetcore_authentication",
     "id": "<user identity name>",
-    "claims": [/* array of user claims */]
+    "claims": [/* array of user claims */],
+    "token": "<authorization header value, if IncludeAuthorizationToken is enabled>"
   },
   "resource": {
     "type": "endpoint",
@@ -207,7 +212,9 @@ The package sends the following input to OPA:
 }
 ```
 
-**Note**: The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
+**Note**: 
+- The `token` field in `subject` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
+- The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
 
 ## OPA Response Schema
 

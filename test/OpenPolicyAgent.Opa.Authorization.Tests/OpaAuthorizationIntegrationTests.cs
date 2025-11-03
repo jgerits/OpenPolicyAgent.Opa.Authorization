@@ -18,6 +18,7 @@ public class OpaAuthorizationIntegrationTests
         Assert.Null(options.DefaultPolicyPath);
         Assert.Equal("en", options.ReasonKey);
         Assert.False(options.AllowUnauthenticated);
+        Assert.False(options.IncludeAuthorizationToken);
     }
 
     [Fact]
@@ -29,7 +30,8 @@ public class OpaAuthorizationIntegrationTests
             OpaUrl = "http://custom-opa:9999",
             DefaultPolicyPath = "custom/policy/path",
             ReasonKey = "fr",
-            AllowUnauthenticated = true
+            AllowUnauthenticated = true,
+            IncludeAuthorizationToken = true
         };
 
         // Assert
@@ -37,6 +39,7 @@ public class OpaAuthorizationIntegrationTests
         Assert.Equal("custom/policy/path", options.DefaultPolicyPath);
         Assert.Equal("fr", options.ReasonKey);
         Assert.True(options.AllowUnauthenticated);
+        Assert.True(options.IncludeAuthorizationToken);
     }
 
     [Fact]
@@ -68,6 +71,29 @@ public class OpaAuthorizationIntegrationTests
         // Assert
         Assert.IsAssignableFrom<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>(attribute);
         Assert.Equal(OpaAuthorizationDefaults.PolicyName, attribute.Policy);
+    }
+
+    [Fact]
+    public void OpaAuthorizationOptions_IncludeAuthorizationToken_DefaultsToFalse()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.False(options.IncludeAuthorizationToken);
+    }
+
+    [Fact]
+    public void OpaAuthorizationOptions_IncludeAuthorizationToken_CanBeEnabled()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions
+        {
+            IncludeAuthorizationToken = true
+        };
+
+        // Assert
+        Assert.True(options.IncludeAuthorizationToken);
     }
 }
 

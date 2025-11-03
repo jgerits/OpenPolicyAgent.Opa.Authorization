@@ -185,15 +185,26 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             ctx.Add("metadata", extraInformation);
         }
 
+        Dictionary<string, object> subject = new Dictionary<string, object>
+        {
+            { "type", SubjectType },
+            { "id", subjectId },
+            { "claims", subjectClaims },
+        };
+
+        // Add authorization token if configured
+        if (_options.IncludeAuthorizationToken)
+        {
+            var authorizationHeader = httpContext.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrEmpty(authorizationHeader))
+            {
+                subject.Add("token", authorizationHeader);
+            }
+        }
+
         Dictionary<string, object> input = new Dictionary<string, object>
         {
-            { "subject", new Dictionary<string, object>
-                {
-                    { "type", SubjectType },
-                    { "id", subjectId },
-                    { "claims", subjectClaims },
-                }
-            },
+            { "subject", subject },
             { "resource", new Dictionary<string, object>
                 {
                     { "type", RequestResourceType },

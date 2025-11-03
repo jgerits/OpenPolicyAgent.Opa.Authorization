@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace OpenPolicyAgent.Opa.Authorization;
 
@@ -12,6 +13,7 @@ public class OpaResponse
     /// Gets or sets the authorization decision.
     /// </summary>
     [JsonPropertyName("allow")]
+    [JsonProperty("allow")]
     public bool Decision { get; set; }
 
     /// <summary>
@@ -19,6 +21,7 @@ public class OpaResponse
     /// Can be a string or a dictionary of localized reasons.
     /// </summary>
     [JsonPropertyName("reason")]
+    [JsonProperty("reason")]
     public object? Reason { get; set; }
 
     /// <summary>
@@ -43,7 +46,7 @@ public class OpaResponse
 
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
-                var reasonDict = JsonSerializer.Deserialize<Dictionary<string, string>>(jsonElement.GetRawText());
+                var reasonDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(jsonElement.GetRawText());
                 if (reasonDict == null || reasonDict.Count == 0)
                     return null;
 
@@ -57,8 +60,8 @@ public class OpaResponse
         }
 
         // If Reason is a dictionary, try to get the preferred key
-        var reasonJson = JsonSerializer.Serialize(Reason);
-        var reasonDict2 = JsonSerializer.Deserialize<Dictionary<string, string>>(reasonJson);
+        var reasonJson = System.Text.Json.JsonSerializer.Serialize(Reason);
+        var reasonDict2 = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(reasonJson);
 
         if (reasonDict2 == null || reasonDict2.Count == 0)
             return null;

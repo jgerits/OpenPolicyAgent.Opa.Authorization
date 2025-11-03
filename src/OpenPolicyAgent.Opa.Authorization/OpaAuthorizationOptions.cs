@@ -12,7 +12,9 @@ public class OpaAuthorizationOptions
 
     /// <summary>
     /// Gets or sets the default OPA policy path to evaluate.
-    /// Example: "authz/allow" or "example/app/allow"
+    /// This should be the package path (e.g., "authz") not the rule path (e.g., "authz/allow").
+    /// The package must contain "allow" and optionally "reason" fields.
+    /// Example: "authz" or "example/app"
     /// </summary>
     public string? DefaultPolicyPath { get; set; }
 

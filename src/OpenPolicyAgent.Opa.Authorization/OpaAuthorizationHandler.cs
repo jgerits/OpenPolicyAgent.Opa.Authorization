@@ -192,9 +192,19 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         string resourceId = httpContext.Request.Path;
         string actionName = httpContext.Request.Method;
         string actionProtocol = httpContext.Request.Protocol;
-        Dictionary<string, string> headers = httpContext.Request.Headers.ToDictionary(
-            kvp => kvp.Key, 
-            kvp => kvp.Value.ToString());
+        
+        // Build headers dictionary with security filtering
+        Dictionary<string, string> headers;
+        if (_options.IncludeHeaders)
+        {
+            headers = httpContext.Request.Headers
+                .Where(kvp => !_options.ExcludedHeaders.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString());
+        }
+        else
+        {
+            headers = new Dictionary<string, string>();
+        }
 
         string contextRemoteAddr = httpContext.Connection.RemoteIpAddress?.ToString() ?? "";
         string contextRemoteHost = httpContext.Request.Host.ToString();

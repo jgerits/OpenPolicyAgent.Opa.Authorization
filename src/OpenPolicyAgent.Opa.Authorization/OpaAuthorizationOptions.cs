@@ -50,6 +50,26 @@ public class OpaAuthorizationOptions
     public bool RequireHttps { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets the list of header names to exclude from the OPA input.
+    /// This is useful for preventing sensitive information from being sent to OPA.
+    /// Default includes common sensitive headers like Authorization, Cookie, and X-API-Key.
+    /// </summary>
+    public HashSet<string> ExcludedHeaders { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Authorization",
+        "Cookie",
+        "X-API-Key",
+        "X-Auth-Token"
+    };
+
+    /// <summary>
+    /// Gets or sets whether to include request headers in the OPA input.
+    /// When false, no headers are sent to OPA (overrides ExcludedHeaders).
+    /// Default is true.
+    /// </summary>
+    public bool IncludeHeaders { get; set; } = true;
+
+    /// <summary>
     /// Validates the configuration options.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>

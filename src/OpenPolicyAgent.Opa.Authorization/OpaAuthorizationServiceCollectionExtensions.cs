@@ -85,4 +85,24 @@ public static class OpaAuthorizationServiceCollectionExtensions
         services.TryAddSingleton<IOpaContextDataProvider, TProvider>();
         return services;
     }
+
+    /// <summary>
+    /// Adds OPA health check to the health check service.
+    /// </summary>
+    /// <param name="builder">The health check builder.</param>
+    /// <param name="name">The health check name. Defaults to "opa".</param>
+    /// <param name="failureStatus">The failure status to report. Defaults to Unhealthy.</param>
+    /// <param name="tags">Optional tags for the health check.</param>
+    /// <returns>The health check builder for chaining.</returns>
+    public static Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder AddOpaHealthCheck(
+        this Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder builder,
+        string name = "opa",
+        Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck<OpaHealthCheck>(
+            name,
+            failureStatus,
+            tags ?? Array.Empty<string>());
+    }
 }

@@ -146,6 +146,21 @@ builder.Services.AddOpaAuthorization(options =>
     // Include authorization token in OPA input (default: false)
     // When enabled, the Authorization header value is included in input.subject.token
     options.IncludeAuthorizationToken = false;
+
+    // Request timeout for OPA calls (default: 30 seconds)
+    options.RequestTimeout = TimeSpan.FromSeconds(30);
+
+    // Require HTTPS for OPA URL (default: false)
+    // When enabled, non-HTTPS URLs will cause validation errors
+    options.RequireHttps = false;
+
+    // Control which headers are sent to OPA (default: true)
+    options.IncludeHeaders = true;
+
+    // Customize which headers to exclude (default includes: Authorization, Cookie, X-API-Key, X-Auth-Token)
+    options.ExcludedHeaders.Add("Custom-Sensitive-Header");
+    // Or clear and start fresh:
+    // options.ExcludedHeaders.Clear();
 });
 ```
 
@@ -156,6 +171,22 @@ You can also configure the OPA URL via environment variable:
 ```bash
 export OPA_URL=http://opa-server:8181
 ```
+
+## Health Check
+
+Add OPA connectivity health checks to your application:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddOpaHealthCheck(
+        name: "opa",
+        tags: new[] { "ready", "opa" });
+
+// In your pipeline
+app.MapHealthChecks("/health/ready");
+```
+
+The health check verifies that the OPA server is reachable and responding.
 
 ## Custom Context Data Provider
 
@@ -215,6 +246,7 @@ The package sends the following input to OPA:
 **Note**: 
 - The `token` field in `subject` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
 - The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
+- The `headers` field in `action` respects the `IncludeHeaders` and `ExcludedHeaders` configuration. By default, sensitive headers like Authorization, Cookie, X-API-Key, and X-Auth-Token are excluded.
 
 ## OPA Response Schema
 
@@ -230,6 +262,112 @@ The package expects the following response from OPA:
 ## Examples
 
 See the [samples directory](./samples) for complete working examples.
+
+## Security Considerations
+
+### Header Filtering
+By default, sensitive headers are excluded from being sent to OPA:
+- `Authorization`
+- `Cookie`
+- `X-API-Key`
+- `X-Auth-Token`
+
+You can customize this list via `options.ExcludedHeaders` or disable header inclusion entirely with `options.IncludeHeaders = false`.
+
+### HTTPS Enforcement
+For production environments, consider enabling HTTPS enforcement:
+```csharp
+options.RequireHttps = true;
+```
+
+This ensures that the OPA URL uses HTTPS, preventing credentials or sensitive data from being transmitted over unencrypted connections.
+
+### Token Handling
+When `IncludeAuthorizationToken` is enabled, be aware that the authorization token will be sent to OPA. Ensure:
+1. OPA is running in a secure environment
+2. Network communication to OPA is encrypted (use HTTPS)
+3. OPA policies do not log tokens or include them in policy decision responses
+
+### Logging
+The package uses structured logging at different levels:
+- `Trace`: Detailed OPA evaluation information
+- `Debug`: OPA input/output (may contain sensitive data - disable in production)
+- `Information`: Authorization decisions
+- `Warning`: Configuration or connectivity issues
+- `Error`: Failures and exceptions
+
+**Important**: Debug and Trace level logging may expose sensitive information. Configure log levels appropriately for your environment.
+
+## Troubleshooting
+
+### OPA Server Connection Issues
+
+**Symptom**: Authorization always fails with HTTP connection errors.
+
+**Solutions**:
+1. Verify OPA server is running: `curl http://localhost:8181/health`
+2. Check the OPA URL configuration
+3. Ensure network connectivity between your app and OPA
+4. Use health checks to monitor OPA connectivity: `builder.Services.AddHealthChecks().AddOpaHealthCheck()`
+
+### Policy Evaluation Errors
+
+**Symptom**: "Error evaluating OPA policy" in logs.
+
+**Solutions**:
+1. Verify the policy path is correct (e.g., "authz/allow" for package authz)
+2. Check that the policy exists in OPA: `curl http://localhost:8181/v1/policies`
+3. Test the policy directly with curl:
+   ```bash
+   curl -X POST http://localhost:8181/v1/data/authz/allow \
+     -H 'Content-Type: application/json' \
+     -d '{"input": {...}}'
+   ```
+4. Enable debug logging to see the exact input being sent to OPA
+
+### Timeout Issues
+
+**Symptom**: "Timeout communicating with OPA server" errors.
+
+**Solutions**:
+1. Increase the request timeout: `options.RequestTimeout = TimeSpan.FromSeconds(60)`
+2. Optimize your OPA policies to execute faster
+3. Check OPA server performance and resource availability
+4. Consider using OPA policy compilation for complex policies
+
+### Unexpected Authorization Denials
+
+**Symptom**: Users are denied access when they should be allowed.
+
+**Solutions**:
+1. Enable debug logging to see the OPA input and response
+2. Test the policy with the exact input being sent
+3. Verify claims are being populated correctly
+4. Check if `AllowUnauthenticated` should be enabled
+5. Verify the policy is returning `{"allow": true}` (not `{"result": true}`)
+
+### Headers Not Available in OPA
+
+**Symptom**: Headers are missing in the OPA policy input.
+
+**Solutions**:
+1. Check if `IncludeHeaders` is set to `true` (default)
+2. Verify the header is not in the `ExcludedHeaders` list
+3. Remember that sensitive headers are excluded by default for security
+
+## Performance Considerations
+
+### Caching
+The package does not include built-in caching of OPA decisions. For high-traffic applications, consider:
+1. Using OPA's decision logging and caching features
+2. Deploying OPA as a sidecar for minimal network latency
+3. Implementing application-level caching if appropriate for your use case
+
+### Policy Optimization
+- Keep policies focused and efficient
+- Use policy compilation for complex policies
+- Consider partial evaluation for data filtering scenarios
+- Monitor OPA performance metrics
 
 ## Dependencies
 

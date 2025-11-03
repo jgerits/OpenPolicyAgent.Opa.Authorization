@@ -179,4 +179,51 @@ public class OpaAuthorizationOptionsValidationTests
         // Assert
         Assert.False(options.RequireHttps);
     }
+
+    [Fact]
+    public void ExcludedHeaders_DefaultValue_ShouldContainSensitiveHeaders()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.Contains("Authorization", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Cookie", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("X-API-Key", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("X-Auth-Token", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExcludedHeaders_ShouldBeCaseInsensitive()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.Contains("authorization", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("AUTHORIZATION", options.ExcludedHeaders, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void IncludeHeaders_DefaultValue_ShouldBeTrue()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.True(options.IncludeHeaders);
+    }
+
+    [Fact]
+    public void ExcludedHeaders_CanBeCustomized()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions();
+        options.ExcludedHeaders.Clear();
+        options.ExcludedHeaders.Add("Custom-Header");
+
+        // Act & Assert
+        Assert.Contains("Custom-Header", options.ExcludedHeaders);
+        Assert.DoesNotContain("Authorization", options.ExcludedHeaders);
+    }
 }

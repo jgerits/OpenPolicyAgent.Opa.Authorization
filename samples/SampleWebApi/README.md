@@ -22,7 +22,15 @@ In the `policies` directory, start OPA with the sample policies:
 
 ```bash
 cd policies
-opa run --server --addr localhost:8181 policy.rego documents.rego
+opa run --server --addr localhost:8181 policy.rego documents.rego debug_policy.rego
+```
+
+For debugging with decision logs enabled:
+
+```bash
+opa run --server --addr localhost:8181 \
+  --set decision_logs.console=true \
+  policy.rego documents.rego debug_policy.rego
 ```
 
 ### 2. Run the Web API
@@ -97,7 +105,7 @@ The `[OpaAuthorize]` attribute on controller actions triggers OPA policy evaluat
 [HttpGet]
 public IActionResult GetAll() { ... }
 
-[OpaAuthorize("authz/documents/read")]  // Uses custom policy path
+[OpaAuthorize("authz/documents/allow")]  // Uses custom policy path
 [HttpGet("{id}")]
 public IActionResult GetById(int id) { ... }
 
@@ -110,9 +118,11 @@ The extra information parameter (second parameter) is available in OPA policies 
 
 ### 3. OPA Policies
 
-Two policy files demonstrate different authorization scenarios:
+Three policy files demonstrate different authorization scenarios:
 
-**policy.rego** - Main authorization policy:
+**policy.rego** - Main authorization policy using modern Rego syntax:
+- Uses `import rego.v1` for future-proof policies
+- Uses `if` keyword for clearer rule definitions
 - Allows GET requests for authenticated users
 - Allows POST/DELETE only for users with admin role
 - Provides localized denial reasons
@@ -120,6 +130,24 @@ Two policy files demonstrate different authorization scenarios:
 **documents.rego** - Document-specific policy:
 - Used by the `GetById` action with custom policy path
 - Requires authentication to read documents
+
+**debug_policy.rego** - Comprehensive debugging example:
+- Logs complete call information for troubleshooting
+- Tracks which rules matched during evaluation
+- Extracts user roles and authentication status
+- Provides detailed denial reasons with context
+- Includes decision log with timestamps
+
+All policies follow [OPA best practices](https://www.openpolicyagent.org/docs/policy-language) with:
+- `import rego.v1` for modern Rego syntax
+- Default deny for security
+- Explicit `if` keywords for clarity
+- `:=` for assignments
+- `some` for explicit iteration
+
+For more information, see:
+- [OPA Policy Language Documentation](https://www.openpolicyagent.org/docs/policy-language)
+- [Rego Cheat Sheet](https://docs.styra.com/opa/rego-cheat-sheet)
 
 ## OPA Input/Output
 
@@ -175,6 +203,94 @@ Or when denied:
   }
 }
 ```
+
+## Debugging Authorization Issues
+
+### Using the Debug Policy
+
+The sample includes a comprehensive debug policy that logs all evaluation details. To test it:
+
+```bash
+# Query the debug policy to see complete decision information
+curl -X POST http://localhost:8181/v1/data/authz/debug \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "input": {
+      "subject": {"id": "john", "claims": [...]},
+      "resource": {"id": "/api/documents"},
+      "action": {"name": "GET"},
+      "context": {"host": "localhost"}
+    }
+  }'
+```
+
+Response includes comprehensive debugging information:
+
+```json
+{
+  "result": {
+    "allow": true,
+    "decision_log": {
+      "timestamp": 1699123456789,
+      "subject": {"id": "john", "claims_count": 3},
+      "resource": {"id": "/api/documents"},
+      "action": {"name": "GET"},
+      "evaluation": {
+        "matched_rules": ["authenticated_user", "get_documents"],
+        "user_roles": ["user"],
+        "is_authenticated": true,
+        "is_admin": false
+      }
+    },
+    "reason": {"en": "Access granted"},
+    "debug_info": {
+      "input_structure": {...},
+      "claim_types": [...],
+      "environment": {...}
+    }
+  }
+}
+```
+
+**Note**: The debug policy returns the same `allow` and `reason` fields that the .NET code expects, plus additional debugging data.
+
+### Testing Policies Directly
+
+Test OPA policies without running the application:
+
+```bash
+# Test a policy with sample input
+echo '{
+  "input": {
+    "subject": {"id": "admin", "claims": [
+      {"type": "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "value": "admin"}
+    ]},
+    "resource": {"id": "/api/documents"},
+    "action": {"name": "POST"}
+  }
+}' | opa eval -d policies/policy.rego -I 'data.authz.allow'
+```
+
+### Enable Verbose Logging
+
+Configure logging in `appsettings.json`:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "OpenPolicyAgent.Opa.Authorization": "Debug"
+    }
+  }
+}
+```
+
+Debug logging will show:
+- Complete OPA input payloads
+- OPA responses
+- Policy evaluation results
+- Authorization decisions
 
 ## Customization
 

@@ -34,7 +34,7 @@ public class DocumentsController : ControllerBase
     /// <summary>
     /// Get a specific document by ID. Uses custom policy path.
     /// </summary>
-    [OpaAuthorize("authz/documents/read")]
+    [OpaAuthorize("authz/documents/allow")]
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {

@@ -274,6 +274,13 @@ The package expects the following response from OPA:
 }
 ```
 
+**Important**: 
+- Your Rego policy **must** define an `allow` rule that returns a boolean value
+- The `reason` field is optional but recommended for providing denial explanations
+- When using OPA's REST API, these fields appear under `result` (e.g., `{"result": {"allow": true, "reason": "..."}}`)
+- The .NET code automatically extracts values from the `result` object
+- Additional fields in your policy response (like `decision_log`, `debug_info`) are ignored but won't cause errors
+
 ## Examples
 
 See the [samples directory](./samples) for complete working examples, including:

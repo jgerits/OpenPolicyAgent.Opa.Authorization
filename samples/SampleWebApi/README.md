@@ -105,7 +105,7 @@ The `[OpaAuthorize]` attribute on controller actions triggers OPA policy evaluat
 [HttpGet]
 public IActionResult GetAll() { ... }
 
-[OpaAuthorize("authz/documents/read")]  // Uses custom policy path
+[OpaAuthorize("authz/documents/allow")]  // Uses custom policy path
 [HttpGet("{id}")]
 public IActionResult GetById(int id) { ... }
 
@@ -236,17 +236,23 @@ Response includes comprehensive debugging information:
       "resource": {"id": "/api/documents"},
       "action": {"name": "GET"},
       "evaluation": {
-        "allow": true,
         "matched_rules": ["authenticated_user", "get_documents"],
         "user_roles": ["user"],
         "is_authenticated": true,
         "is_admin": false
       }
     },
-    "reason": {"en": "Access granted"}
+    "reason": {"en": "Access granted"},
+    "debug_info": {
+      "input_structure": {...},
+      "claim_types": [...],
+      "environment": {...}
+    }
   }
 }
 ```
+
+**Note**: The debug policy returns the same `allow` and `reason` fields that the .NET code expects, plus additional debugging data.
 
 ### Testing Policies Directly
 

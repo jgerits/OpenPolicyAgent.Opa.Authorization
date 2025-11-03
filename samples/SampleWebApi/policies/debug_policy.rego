@@ -10,12 +10,13 @@ default allow := false
 
 # Decision log with complete input context for debugging
 # This helps track what data was available during policy evaluation
+# Note: Query this separately from 'allow' to avoid circular references
 decision_log := {
 	"timestamp": time.now_ns(),
 	"subject": {
 		"id": input.subject.id,
 		"type": input.subject.type,
-		"claims_count": count(input.subject.claims),
+		"claims_count": count(object.get(input.subject, "claims", [])),
 		"has_token": object.get(input.subject, "token", null) != null,
 	},
 	"resource": {
@@ -36,8 +37,6 @@ decision_log := {
 		"has_custom_data": object.get(input.context, "data", null) != null,
 	},
 	"evaluation": {
-		"allow": allow,
-		"reason": reason,
 		"user_roles": user_roles,
 		"is_authenticated": is_authenticated,
 		"is_admin": is_admin,
@@ -70,8 +69,9 @@ matched_rules contains "delete_documents" if {
 }
 
 # Extract all user roles for visibility
+# Safe iteration with default empty array
 user_roles contains role if {
-	some claim in input.subject.claims
+	some claim in object.get(input.subject, "claims", [])
 	claim.type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
 	role := claim.value
 }
@@ -87,8 +87,9 @@ is_admin if {
 }
 
 # Helper function to check if user has a specific role
+# Safe iteration with default empty array
 has_role(role) if {
-	some claim in input.subject.claims
+	some claim in object.get(input.subject, "claims", [])
 	claim.type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
 	claim.value == role
 }
@@ -144,6 +145,7 @@ reason["en"] := msg if {
 }
 
 # Additional debugging metadata
+# Safe iteration with default empty array for claims
 debug_info := {
 	"input_structure": {
 		"has_subject": object.get(input, "subject", null) != null,
@@ -151,7 +153,7 @@ debug_info := {
 		"has_action": object.get(input, "action", null) != null,
 		"has_context": object.get(input, "context", null) != null,
 	},
-	"claim_types": {type | some claim in input.subject.claims; type := claim.type},
+	"claim_types": {type | some claim in object.get(input.subject, "claims", []); type := claim.type},
 	"environment": {
 		"opa_version": opa.runtime().version,
 		"policy_evaluation_time_ns": time.now_ns(),

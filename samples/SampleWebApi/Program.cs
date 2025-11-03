@@ -52,7 +52,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddOpaAuthorization(options =>
 {
     options.OpaUrl = builder.Configuration["OpaUrl"] ?? "http://localhost:8181";
-    options.DefaultPolicyPath = "authz/allow";
+    options.DefaultPolicyPath = "authz";
 });
 
 // Add controllers

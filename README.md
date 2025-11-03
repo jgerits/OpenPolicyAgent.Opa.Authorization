@@ -36,7 +36,7 @@ builder.Services.AddAuthentication(/* your authentication configuration */);
 builder.Services.AddOpaAuthorization(options =>
 {
     options.OpaUrl = "http://localhost:8181";
-    options.DefaultPolicyPath = "authz/allow";
+    options.DefaultPolicyPath = "authz";
 });
 
 builder.Services.AddControllers();
@@ -72,7 +72,7 @@ public class DocumentsController : ControllerBase
     }
 
     // Uses a custom policy path for this specific action
-    [OpaAuthorize("authz/documents/allow")]
+    [OpaAuthorize("authz/documents")]
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {
@@ -80,7 +80,7 @@ public class DocumentsController : ControllerBase
     }
 
     // Includes extra information (available as input.context.metadata in OPA)
-    [OpaAuthorize("authz/documents/allow", "AdminOperation")]
+    [OpaAuthorize("authz/documents", "AdminOperation")]
     [HttpPost]
     public IActionResult Create([FromBody] object document)
     {
@@ -150,7 +150,8 @@ builder.Services.AddOpaAuthorization(options =>
     options.OpaUrl = "http://localhost:8181";
 
     // Default policy path to evaluate (optional)
-    options.DefaultPolicyPath = "authz/allow";
+    // This should be the package path (e.g., "authz") not the rule path (e.g., "authz/allow")
+    options.DefaultPolicyPath = "authz";
 
     // Preferred language key for access denial reasons (default: "en")
     options.ReasonKey = "en";
@@ -328,7 +329,7 @@ To use the debug policy:
 
 1. **Configure your endpoint to use the debug policy path**:
    ```csharp
-   [OpaAuthorize("authz/debug/allow")]
+   [OpaAuthorize("authz/debug")]
    [HttpGet]
    public IActionResult GetDocument() { ... }
    ```
@@ -426,11 +427,11 @@ The package uses structured logging at different levels:
 **Symptom**: "Error evaluating OPA policy" in logs.
 
 **Solutions**:
-1. Verify the policy path is correct (e.g., "authz/allow" for package authz)
+1. Verify the policy path is correct (e.g., "authz" for package authz with allow and reason rules)
 2. Check that the policy exists in OPA: `curl http://localhost:8181/v1/policies`
 3. Test the policy directly with curl:
    ```bash
-   curl -X POST http://localhost:8181/v1/data/authz/allow \
+   curl -X POST http://localhost:8181/v1/data/authz \
      -H 'Content-Type: application/json' \
      -d '{"input": {...}}'
    ```
@@ -456,6 +457,46 @@ The package uses structured logging at different levels:
 3. Verify claims are being populated correctly
 4. Check if `AllowUnauthenticated` should be enabled
 5. Verify the policy is returning `{"allow": true}` (not `{"result": true}`)
+
+### "Could not convert bool result to type OpaResponse" Error
+
+**Symptom**: "Could not convert bool result to type OpenPolicyAgent.Opa.Authorization.OpaResponse" error in logs.
+
+**Cause**: This occurs when the policy path points to a specific rule (e.g., `authz/allow`) instead of the package (e.g., `authz`).
+
+**Solution**:
+1. Change your policy path from `authz/allow` to `authz`:
+   ```csharp
+   options.DefaultPolicyPath = "authz";  // Correct - queries the package
+   // NOT: options.DefaultPolicyPath = "authz/allow";  // Wrong - queries only the rule
+   ```
+
+2. Your OPA policy package should contain `allow` and optionally `reason` fields:
+   ```rego
+   package authz
+   
+   default allow := false
+   
+   allow if {
+       # your rules
+   }
+   
+   reason["en"] := "Access denied" if {
+       not allow
+   }
+   ```
+
+3. When querying `/v1/data/authz`, OPA returns:
+   ```json
+   {"result": {"allow": true, "reason": {"en": "..."}}}
+   ```
+   
+   But when querying `/v1/data/authz/allow`, OPA returns:
+   ```json
+   {"result": true}  // Just the boolean value
+   ```
+
+The library expects the full object structure with `allow` and `reason` fields, not just a boolean.
 
 ### Headers Not Available in OPA
 

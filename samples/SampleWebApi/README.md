@@ -101,15 +101,15 @@ In a real application, you would use proper JWT token validation with signing ke
 The `[OpaAuthorize]` attribute on controller actions triggers OPA policy evaluation:
 
 ```csharp
-[OpaAuthorize]  // Uses default policy path: authz/allow
+[OpaAuthorize]  // Uses default policy path: authz
 [HttpGet]
 public IActionResult GetAll() { ... }
 
-[OpaAuthorize("authz/documents/allow")]  // Uses custom policy path
+[OpaAuthorize("authz/documents")]  // Uses custom policy path
 [HttpGet("{id}")]
 public IActionResult GetById(int id) { ... }
 
-[OpaAuthorize("authz/allow", "CreateDocument")]  // With extra metadata
+[OpaAuthorize("authz", "CreateDocument")]  // With extra metadata
 [HttpPost]
 public IActionResult Create([FromBody] CreateDocumentRequest request) { ... }
 ```

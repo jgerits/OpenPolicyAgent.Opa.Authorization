@@ -34,7 +34,7 @@ public class DocumentsController : ControllerBase
     /// <summary>
     /// Get a specific document by ID. Uses custom policy path.
     /// </summary>
-    [OpaAuthorize("authz/documents/allow")]
+    [OpaAuthorize("authz/documents")]
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {
@@ -52,7 +52,7 @@ public class DocumentsController : ControllerBase
     /// Create a new document. Only admins should be allowed by OPA policy.
     /// Includes extra metadata that can be used in the OPA policy.
     /// </summary>
-    [OpaAuthorize("authz/allow", "CreateDocument")]
+    [OpaAuthorize("authz", "CreateDocument")]
     [HttpPost]
     public IActionResult Create([FromBody] CreateDocumentRequest request)
     {
@@ -74,7 +74,7 @@ public class DocumentsController : ControllerBase
     /// Delete a document. Only admins should be allowed by OPA policy.
     /// Includes extra metadata for sensitive operations.
     /// </summary>
-    [OpaAuthorize("authz/allow", "DeleteDocument")]
+    [OpaAuthorize("authz", "DeleteDocument")]
     [HttpDelete("{id}")]
     public IActionResult Delete(int id)
     {

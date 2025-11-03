@@ -91,30 +91,45 @@ public class DocumentsController : ControllerBase
 
 ### 3. Create OPA Policy
 
-Create a Rego policy file (e.g., `policy.rego`):
+Create a Rego policy file (e.g., `policy.rego`) using modern Rego syntax:
 
 ```rego
 package authz
 
-# Default deny
-default allow = false
+import rego.v1
+
+# Default deny - always deny by default for security
+default allow := false
 
 # Allow GET requests to /api/documents for authenticated users
-allow {
-    input.action.name == "GET"
-    startswith(input.resource.id, "/api/documents")
-    input.subject.id != ""
+allow if {
+	input.action.name == "GET"
+	startswith(input.resource.id, "/api/documents")
+	input.subject.id != ""
 }
 
 # Allow POST requests only for admin users
-allow {
-    input.action.name == "POST"
-    startswith(input.resource.id, "/api/documents")
-    some claim in input.subject.claims
-    claim.type == "role"
-    claim.value == "admin"
+allow if {
+	input.action.name == "POST"
+	startswith(input.resource.id, "/api/documents")
+	has_role("admin")
+}
+
+# Helper function to check if user has a specific role
+has_role(role) if {
+	some claim in input.subject.claims
+	claim.type == "role"
+	claim.value == role
 }
 ```
+
+**Note**: This example uses modern Rego syntax with:
+- `import rego.v1` for future-proof policies
+- `if` keyword for clearer rule definitions
+- `:=` for explicit assignment
+- `some` for explicit iteration
+
+For more information, see the [OPA Policy Language documentation](https://www.openpolicyagent.org/docs/policy-language) and [Rego Cheat Sheet](https://docs.styra.com/opa/rego-cheat-sheet).
 
 ### 4. Run OPA Server
 
@@ -261,7 +276,93 @@ The package expects the following response from OPA:
 
 ## Examples
 
-See the [samples directory](./samples) for complete working examples.
+See the [samples directory](./samples) for complete working examples, including:
+- Basic authorization with role-based access control
+- Document-specific policies
+- **Debug policy with comprehensive logging** - See `samples/SampleWebApi/policies/debug_policy.rego` for an example that logs complete call information for troubleshooting
+
+## Debugging OPA Policies
+
+### Using the Debug Policy
+
+The sample includes a comprehensive debug policy (`debug_policy.rego`) that logs all evaluation details:
+
+```rego
+package authz.debug
+
+import rego.v1
+
+# Returns comprehensive decision log with all input data
+decision_log := {
+	"timestamp": time.now_ns(),
+	"subject": {
+		"id": input.subject.id,
+		"claims_count": count(input.subject.claims),
+	},
+	"resource": {
+		"id": input.resource.id,
+		"type": input.resource.type,
+	},
+	"action": {
+		"name": input.action.name,
+	},
+	"evaluation": {
+		"allow": allow,
+		"reason": reason,
+		"matched_rules": matched_rules,
+	},
+}
+```
+
+To use the debug policy:
+
+1. **Configure your endpoint to use the debug policy path**:
+   ```csharp
+   [OpaAuthorize("authz/debug/allow")]
+   [HttpGet]
+   public IActionResult GetDocument() { ... }
+   ```
+
+2. **Query the decision log** alongside your allow decision:
+   ```bash
+   curl -X POST http://localhost:8181/v1/data/authz/debug \
+     -H 'Content-Type: application/json' \
+     -d @input.json
+   ```
+
+3. **Enable OPA decision logging** for automatic audit trails:
+   ```bash
+   opa run --server --addr localhost:8181 \
+     --set decision_logs.console=true \
+     policy.rego
+   ```
+
+### Best Practices for Debugging
+
+1. **Use `print()` statements during development**:
+   ```rego
+   allow if {
+       print("Checking user:", input.subject.id)
+       print("User roles:", user_roles)
+       has_role("admin")
+   }
+   ```
+
+2. **Test policies with sample inputs**:
+   ```bash
+   opa eval -d policy.rego -i input.json 'data.authz.allow'
+   ```
+
+3. **Enable verbose logging in this package**:
+   ```json
+   {
+     "Logging": {
+       "LogLevel": {
+         "OpenPolicyAgent.Opa.Authorization": "Debug"
+       }
+     }
+   }
+   ```
 
 ## Security Considerations
 

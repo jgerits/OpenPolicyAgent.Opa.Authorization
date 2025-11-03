@@ -39,8 +39,21 @@ public static class OpaAuthorizationServiceCollectionExtensions
             throw new ArgumentNullException(nameof(configureOptions));
         }
 
-        // Configure options
+        // Configure options with validation
         services.Configure(configureOptions);
+        services.AddOptions<OpaAuthorizationOptions>()
+            .Validate(options =>
+            {
+                try
+                {
+                    options.Validate();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }, "OpaAuthorizationOptions validation failed. Please check your configuration.");
 
         // Add HttpContextAccessor if not already registered
         services.TryAddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.HttpContextAccessor>();
@@ -71,5 +84,25 @@ public static class OpaAuthorizationServiceCollectionExtensions
     {
         services.TryAddSingleton<IOpaContextDataProvider, TProvider>();
         return services;
+    }
+
+    /// <summary>
+    /// Adds OPA health check to the health check service.
+    /// </summary>
+    /// <param name="builder">The health check builder.</param>
+    /// <param name="name">The health check name. Defaults to "opa".</param>
+    /// <param name="failureStatus">The failure status to report. Defaults to Unhealthy.</param>
+    /// <param name="tags">Optional tags for the health check.</param>
+    /// <returns>The health check builder for chaining.</returns>
+    public static Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder AddOpaHealthCheck(
+        this Microsoft.Extensions.DependencyInjection.IHealthChecksBuilder builder,
+        string name = "opa",
+        Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus? failureStatus = null,
+        IEnumerable<string>? tags = null)
+    {
+        return builder.AddCheck<OpaHealthCheck>(
+            name,
+            failureStatus,
+            tags ?? Array.Empty<string>());
     }
 }

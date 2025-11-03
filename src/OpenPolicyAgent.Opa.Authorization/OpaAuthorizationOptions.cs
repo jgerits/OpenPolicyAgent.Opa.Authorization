@@ -35,4 +35,69 @@ public class OpaAuthorizationOptions
     /// Default is false for backward compatibility.
     /// </summary>
     public bool IncludeAuthorizationToken { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the timeout for OPA policy evaluation requests.
+    /// Default is 30 seconds.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Gets or sets whether to enforce HTTPS for the OPA URL.
+    /// When true, non-HTTPS URLs will cause a validation error.
+    /// Default is false for development flexibility.
+    /// </summary>
+    public bool RequireHttps { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets the list of header names to exclude from the OPA input.
+    /// This is useful for preventing sensitive information from being sent to OPA.
+    /// Default includes common sensitive headers like Authorization, Cookie, and X-API-Key.
+    /// </summary>
+    public HashSet<string> ExcludedHeaders { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "Authorization",
+        "Cookie",
+        "X-API-Key",
+        "X-Auth-Token"
+    };
+
+    /// <summary>
+    /// Gets or sets whether to include request headers in the OPA input.
+    /// When false, no headers are sent to OPA (overrides ExcludedHeaders).
+    /// Default is true.
+    /// </summary>
+    public bool IncludeHeaders { get; set; } = true;
+
+    /// <summary>
+    /// Validates the configuration options.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(OpaUrl))
+        {
+            throw new InvalidOperationException("OpaUrl cannot be null or whitespace.");
+        }
+
+        if (!Uri.TryCreate(OpaUrl, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException($"OpaUrl '{OpaUrl}' is not a valid absolute URI.");
+        }
+
+        if (RequireHttps && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            throw new InvalidOperationException($"OpaUrl must use HTTPS when RequireHttps is enabled. Current URL: {OpaUrl}");
+        }
+
+        if (RequestTimeout <= TimeSpan.Zero)
+        {
+            throw new InvalidOperationException("RequestTimeout must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(ReasonKey))
+        {
+            throw new InvalidOperationException("ReasonKey cannot be null or whitespace.");
+        }
+    }
 }

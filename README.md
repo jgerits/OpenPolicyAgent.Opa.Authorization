@@ -314,12 +314,15 @@ decision_log := {
 		"name": input.action.name,
 	},
 	"evaluation": {
-		"allow": allow,
-		"reason": reason,
 		"matched_rules": matched_rules,
+		"user_roles": user_roles,
+		"is_authenticated": is_authenticated,
+		"is_admin": is_admin,
 	},
 }
 ```
+
+**Note**: The decision_log does not include `allow` and `reason` to avoid circular references. These are separate top-level fields in the policy response.
 
 To use the debug policy:
 

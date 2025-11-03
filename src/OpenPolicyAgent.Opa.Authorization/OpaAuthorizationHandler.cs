@@ -13,7 +13,7 @@ namespace OpenPolicyAgent.Opa.Authorization;
 /// </summary>
 public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequirement>
 {
-    private readonly OpaClient _opaClient;
+    private readonly OpaClient? _opaClient;
     private readonly OpaAuthorizationOptions _options;
     private readonly ILogger<OpaAuthorizationHandler> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -66,8 +66,6 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         else
         {
             _logger.LogWarning("OPA Authorization is DISABLED. All authorization requests will be logged and allowed.");
-            // Initialize with a dummy URL since we won't use it
-            _opaClient = new OpaClient("http://localhost:8181");
         }
     }
 
@@ -128,6 +126,14 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             if (_logger.IsEnabled(LogLevel.Debug))
             {
                 _logger.LogDebug("OPA input for request: {Input}", JsonSerializer.Serialize(input));
+            }
+
+            // Ensure OPA client is initialized (should never be null at this point)
+            if (_opaClient == null)
+            {
+                _logger.LogError("OPA client is not initialized. This should not happen.");
+                context.Fail();
+                return;
             }
 
             // Evaluate OPA policy

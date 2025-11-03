@@ -226,4 +226,59 @@ public class OpaAuthorizationOptionsValidationTests
         Assert.Contains("Custom-Header", options.ExcludedHeaders);
         Assert.DoesNotContain("Authorization", options.ExcludedHeaders);
     }
+
+    [Fact]
+    public void DisableAuthorization_DefaultValue_ShouldBeFalse()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.False(options.DisableAuthorization);
+    }
+
+    [Fact]
+    public void DisableAuthorization_CanBeEnabled()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions
+        {
+            DisableAuthorization = true
+        };
+
+        // Assert
+        Assert.True(options.DisableAuthorization);
+    }
+
+    [Fact]
+    public void Validate_WithDisableAuthorization_ShouldNotValidateOpaUrl()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions
+        {
+            DisableAuthorization = true,
+            OpaUrl = null! // Invalid URL
+        };
+
+        // Act & Assert
+        var exception = Record.Exception(() => options.Validate());
+        Assert.Null(exception); // Should not throw
+    }
+
+    [Fact]
+    public void Validate_WithDisableAuthorization_ShouldNotValidateOtherSettings()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions
+        {
+            DisableAuthorization = true,
+            OpaUrl = "invalid-url",
+            ReasonKey = null!,
+            RequestTimeout = TimeSpan.Zero
+        };
+
+        // Act & Assert
+        var exception = Record.Exception(() => options.Validate());
+        Assert.Null(exception); // Should not throw when disabled
+    }
 }

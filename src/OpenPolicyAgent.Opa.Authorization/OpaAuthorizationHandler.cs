@@ -56,11 +56,19 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             throw;
         }
 
-        // Initialize OPA client
-        var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
-        _opaClient = new OpaClient(opaUrl);
-
-        _logger.LogInformation("OpaAuthorizationHandler initialized with OPA URL: {OpaUrl}", opaUrl);
+        // Initialize OPA client only if authorization is not disabled
+        if (!_options.DisableAuthorization)
+        {
+            var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
+            _opaClient = new OpaClient(opaUrl);
+            _logger.LogInformation("OpaAuthorizationHandler initialized with OPA URL: {OpaUrl}", opaUrl);
+        }
+        else
+        {
+            _logger.LogWarning("OPA Authorization is DISABLED. All authorization requests will be logged and allowed.");
+            // Initialize with a dummy URL since we won't use it
+            _opaClient = new OpaClient("http://localhost:8181");
+        }
     }
 
     /// <summary>
@@ -86,6 +94,21 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         {
             _logger.LogTrace("User is not authenticated, denying authorization");
             context.Fail();
+            return;
+        }
+
+        // If authorization is disabled, log and succeed
+        if (_options.DisableAuthorization)
+        {
+            var resourceId = httpContext.Request.Path;
+            var actionName = httpContext.Request.Method;
+            
+            _logger.LogInformation(
+                "OPA Authorization is DISABLED. Resource: {Resource}, Action: {Action}, Decision: Disabled - No authorization performed",
+                resourceId,
+                actionName);
+            
+            context.Succeed(requirement);
             return;
         }
 

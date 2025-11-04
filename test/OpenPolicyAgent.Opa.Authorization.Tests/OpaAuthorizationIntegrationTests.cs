@@ -95,5 +95,28 @@ public class OpaAuthorizationIntegrationTests
         // Assert
         Assert.True(options.IncludeAuthorizationToken);
     }
+
+    [Fact]
+    public void OpaAuthorizationOptions_DisableAuthorization_DefaultsToFalse()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.False(options.DisableAuthorization);
+    }
+
+    [Fact]
+    public void OpaAuthorizationOptions_DisableAuthorization_CanBeEnabled()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions
+        {
+            DisableAuthorization = true
+        };
+
+        // Assert
+        Assert.True(options.DisableAuthorization);
+    }
 }
 

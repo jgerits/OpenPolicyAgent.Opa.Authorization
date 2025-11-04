@@ -72,11 +72,24 @@ public class OpaAuthorizationOptions
     public bool IncludeHeaders { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets whether to disable OPA authorization entirely.
+    /// When true, no calls are made to the OPA server and all authorization attempts are logged locally.
+    /// Default is false to maintain backward compatibility.
+    /// </summary>
+    public bool DisableAuthorization { get; set; } = false;
+
+    /// <summary>
     /// Validates the configuration options.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
     public void Validate()
     {
+        // Skip validation if authorization is disabled
+        if (DisableAuthorization)
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(OpaUrl))
         {
             throw new InvalidOperationException("OpaUrl cannot be null or whitespace.");

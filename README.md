@@ -104,22 +104,28 @@ default allow := false
 
 # Allow GET requests to /api/documents for authenticated users
 allow if {
-	input.action.name == "GET"
-	startswith(input.resource.id, "/api/documents")
-	input.subject.id != ""
+	input.action.operation == "GET"
+	startswith(input.action.resource.endpoint.path, "/api/documents")
+	input.context.identity.user != ""
 }
 
 # Allow POST requests only for admin users
 allow if {
-	input.action.name == "POST"
-	startswith(input.resource.id, "/api/documents")
+	input.action.operation == "POST"
+	startswith(input.action.resource.endpoint.path, "/api/documents")
 	has_role("admin")
 }
 
 # Helper function to check if user has a specific role
+# Checks both groups (recommended) and claims (backward compatible)
 has_role(role) if {
-	some claim in input.subject.claims
-	claim.type == "role"
+	some group in input.context.identity.groups
+	group == role
+}
+
+has_role(role) if {
+	some claim in input.context.identity.claims
+	claim.type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
 	claim.value == role
 }
 ```
@@ -178,6 +184,12 @@ builder.Services.AddOpaAuthorization(options =>
     options.ExcludedHeaders.Add("Custom-Sensitive-Header");
     // Or clear and start fresh:
     // options.ExcludedHeaders.Clear();
+
+    // Customize which claim types are treated as groups (default includes standard role claim types)
+    // These claims will be extracted and included in input.context.identity.groups in OPA policies
+    options.GroupClaimTypes.Add("custom-group-claim");
+    // Or replace the defaults entirely:
+    // options.GroupClaimTypes = new HashSet<string> { "custom-role", "custom-group" };
 
     // Disable OPA authorization entirely (default: false)
     // When enabled, no calls are made to the OPA server and all authorization attempts are logged locally
@@ -270,38 +282,47 @@ This data will be available under `input.context.data` in your OPA policy.
 
 ## OPA Input Schema
 
-The package sends the following input to OPA:
+The package sends the following input to OPA (inspired by Trino's OPA integration, adapted for .NET/ASP.NET Core):
 
 ```json
 {
-  "subject": {
-    "type": "aspnetcore_authentication",
-    "id": "<user identity name>",
-    "claims": [/* array of user claims */],
-    "token": "<authorization header value, if IncludeAuthorizationToken is enabled>"
-  },
-  "resource": {
-    "type": "endpoint",
-    "id": "<request path>"
-  },
-  "action": {
-    "name": "<HTTP method>",
-    "protocol": "<HTTP protocol>",
-    "headers": {/* request headers */}
-  },
   "context": {
-    "type": "http",
-    "host": "<request host>",
-    "ip": "<remote IP address>",
-    "port": <remote port>,
+    "identity": {
+      "user": "<user identity name>",
+      "claims": [/* array of user claims with type, value, valueType, issuer */],
+      "groups": [/* array of role values extracted from claims */],
+      "token": "<authorization header value, if IncludeAuthorizationToken is enabled>"
+    },
+    "requestId": "<unique request identifier (trace ID)>",
+    "softwareStack": {
+      "framework": "aspnetcore",
+      "runtimeVersion": "<.NET runtime version>"
+    },
+    "http": {
+      "host": "<request host>",
+      "ip": "<remote IP address>",
+      "port": <remote port>
+    },
     "data": {/* custom context data, if provider registered */},
     "metadata": "<extra information from attribute, if provided>"
+  },
+  "action": {
+    "operation": "<HTTP method>",
+    "resource": {
+      "endpoint": {
+        "path": "<request path>",
+        "type": "endpoint"
+      }
+    },
+    "protocol": "<HTTP protocol>",
+    "headers": {/* request headers */}
   }
 }
 ```
 
 **Note**: 
-- The `token` field in `subject` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
+- The structure is inspired by Trino's OPA integration but adapted to make sense for .NET/ASP.NET Core applications.
+- The `token` field in `context.identity` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
 - The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
 - The `headers` field in `action` respects the `IncludeHeaders` and `ExcludedHeaders` configuration. By default, sensitive headers like Authorization, Cookie, X-API-Key, and X-Auth-Token are excluded.
 

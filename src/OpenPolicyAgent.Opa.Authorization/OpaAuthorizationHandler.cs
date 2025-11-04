@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -19,9 +20,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly IOpaContextDataProvider? _contextDataProvider;
 
-    private const string SubjectType = "aspnetcore_authentication";
-    private const string RequestResourceType = "endpoint";
-    private const string RequestContextType = "http";
+
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpaAuthorizationHandler"/> class.
@@ -199,13 +198,14 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
 
     /// <summary>
     /// Builds the input object for OPA policy evaluation.
+    /// The structure is inspired by Trino's OPA integration but adapted for .NET/ASP.NET Core.
     /// </summary>
     private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(authContext);
 
-        var subjectId = authContext.User.Identity?.Name ?? "";
+        var userName = authContext.User.Identity?.Name ?? "";
         
         // Convert claims to a serializable format
         var claimsList = authContext.User.Claims.Select(c => new 
@@ -216,12 +216,83 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             issuer = c.Issuer
         }).ToList();
         
-        var subjectClaims = claimsList as object ?? new { };
+        // Extract groups from role claims based on configured claim types
+        var groups = authContext.User.Claims
+            .Where(c => _options.GroupClaimTypes.Contains(c.Type))
+            .Select(c => c.Value)
+            .ToList();
 
-        string resourceId = httpContext.Request.Path;
-        string actionName = httpContext.Request.Method;
-        string actionProtocol = httpContext.Request.Protocol;
-        
+        // Build identity object
+        var identity = new Dictionary<string, object>
+        {
+            { "user", userName },
+            { "claims", claimsList },
+            { "groups", groups }
+        };
+
+        // Add authorization token if configured
+        if (_options.IncludeAuthorizationToken)
+        {
+            var authorizationHeader = httpContext.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrEmpty(authorizationHeader))
+            {
+                identity.Add("token", authorizationHeader);
+            }
+        }
+
+        // Generate request ID from trace identifier
+        var requestId = httpContext.TraceIdentifier;
+
+        // Get .NET runtime version
+        var runtimeVersion = Environment.Version.ToString();
+
+        // Build software stack information
+        var softwareStack = new Dictionary<string, object>
+        {
+            { "framework", "aspnetcore" },
+            { "runtimeVersion", runtimeVersion }
+        };
+
+        // Build HTTP connection details
+        var httpInfo = new Dictionary<string, object>
+        {
+            { "host", httpContext.Request.Host.ToString() },
+            { "ip", httpContext.Connection.RemoteIpAddress?.ToString() ?? "" },
+            { "port", httpContext.Connection.RemotePort }
+        };
+
+        // Build context object
+        var context = new Dictionary<string, object>
+        {
+            { "identity", identity },
+            { "requestId", requestId },
+            { "softwareStack", softwareStack },
+            { "http", httpInfo }
+        };
+
+        // Add custom context data if provider is available
+        if (_contextDataProvider != null)
+        {
+            try
+            {
+                object contextData = _contextDataProvider.GetContextData(httpContext);
+                if (contextData != null)
+                {
+                    context.Add("data", contextData);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error retrieving custom context data from provider");
+            }
+        }
+
+        // Add extra information if available
+        if (!string.IsNullOrEmpty(extraInformation))
+        {
+            context.Add("metadata", extraInformation);
+        }
+
         // Build headers dictionary with security filtering
         Dictionary<string, string> headers;
         if (_options.IncludeHeaders)
@@ -235,75 +306,31 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             headers = new Dictionary<string, string>();
         }
 
-        string contextRemoteAddr = httpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-        string contextRemoteHost = httpContext.Request.Host.ToString();
-        int contextRemotePort = httpContext.Connection.RemotePort;
-
-        Dictionary<string, object> ctx = new Dictionary<string, object>
+        // Build resource object
+        var resource = new Dictionary<string, object>
         {
-            { "type", RequestContextType },
-            { "host", contextRemoteHost },
-            { "ip", contextRemoteAddr },
-            { "port", contextRemotePort },
+            { "endpoint", new Dictionary<string, object>
+                {
+                    { "path", httpContext.Request.Path.ToString() },
+                    { "type", "endpoint" }
+                }
+            }
         };
 
-        // Add custom context data if provider is available
-        if (_contextDataProvider != null)
+        // Build action object
+        var action = new Dictionary<string, object>
         {
-            try
-            {
-                object contextData = _contextDataProvider.GetContextData(httpContext);
-                if (contextData != null)
-                {
-                    ctx.Add("data", contextData);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error retrieving custom context data from provider");
-            }
-        }
-
-        // Add extra information if available
-        if (!string.IsNullOrEmpty(extraInformation))
-        {
-            ctx.Add("metadata", extraInformation);
-        }
-
-        Dictionary<string, object> subject = new Dictionary<string, object>
-        {
-            { "type", SubjectType },
-            { "id", subjectId },
-            { "claims", subjectClaims },
+            { "operation", httpContext.Request.Method },
+            { "resource", resource },
+            { "protocol", httpContext.Request.Protocol },
+            { "headers", headers }
         };
 
-        // Add authorization token if configured
-        if (_options.IncludeAuthorizationToken)
+        // Build final input object
+        var input = new Dictionary<string, object>
         {
-            var authorizationHeader = httpContext.Request.Headers.Authorization.ToString();
-            if (!string.IsNullOrEmpty(authorizationHeader))
-            {
-                subject.Add("token", authorizationHeader);
-            }
-        }
-
-        Dictionary<string, object> input = new Dictionary<string, object>
-        {
-            { "subject", subject },
-            { "resource", new Dictionary<string, object>
-                {
-                    { "type", RequestResourceType },
-                    { "id", resourceId },
-                }
-            },
-            { "action", new Dictionary<string, object>
-                {
-                    { "name", actionName },
-                    { "protocol", actionProtocol },
-                    { "headers", headers },
-                }
-            },
-            { "context", ctx },
+            { "context", context },
+            { "action", action }
         };
 
         return input;

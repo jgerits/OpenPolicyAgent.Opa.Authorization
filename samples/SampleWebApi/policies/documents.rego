@@ -7,11 +7,11 @@ default allow := false
 
 # Allow reading documents for authenticated users
 allow if {
-	input.subject.id != ""
+	input.context.identity.user != ""
 }
 
 # Provide localized reason for denial
 reason["en"] := "Document access requires authentication" if {
 	not allow
-	not input.subject.id
+	not input.context.identity.user
 }

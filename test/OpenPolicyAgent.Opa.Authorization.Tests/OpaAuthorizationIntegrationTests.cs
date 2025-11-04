@@ -118,5 +118,35 @@ public class OpaAuthorizationIntegrationTests
         // Assert
         Assert.True(options.DisableAuthorization);
     }
+
+    [Fact]
+    public void OpaAuthorizationOptions_GroupClaimTypes_HasDefaultValues()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.NotNull(options.GroupClaimTypes);
+        Assert.Contains(System.Security.Claims.ClaimTypes.Role, options.GroupClaimTypes);
+        Assert.Contains("role", options.GroupClaimTypes);
+        Assert.Contains("groups", options.GroupClaimTypes);
+    }
+
+    [Fact]
+    public void OpaAuthorizationOptions_GroupClaimTypes_CanBeCustomized()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions();
+        
+        // Act
+        options.GroupClaimTypes.Clear();
+        options.GroupClaimTypes.Add("custom-role");
+        options.GroupClaimTypes.Add("custom-group");
+
+        // Assert
+        Assert.Equal(2, options.GroupClaimTypes.Count);
+        Assert.Contains("custom-role", options.GroupClaimTypes);
+        Assert.Contains("custom-group", options.GroupClaimTypes);
+    }
 }
 

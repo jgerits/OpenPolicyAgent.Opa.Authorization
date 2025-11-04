@@ -50,7 +50,7 @@ The OPA input structure has been reorganized to be more aligned with industry st
     "requestId": "<unique request identifier (trace ID)>",
     "softwareStack": {
       "framework": "aspnetcore",
-      "frameworkVersion": "<.NET runtime version>"
+      "runtimeVersion": "<.NET runtime version>"
     },
     "http": {
       "host": "<request host>",

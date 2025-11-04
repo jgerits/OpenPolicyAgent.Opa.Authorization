@@ -216,9 +216,9 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
             issuer = c.Issuer
         }).ToList();
         
-        // Extract groups from role claims
+        // Extract groups from role claims based on configured claim types
         var groups = authContext.User.Claims
-            .Where(c => c.Type == ClaimTypes.Role || c.Type == "role" || c.Type == "groups")
+            .Where(c => _options.GroupClaimTypes.Contains(c.Type))
             .Select(c => c.Value)
             .ToList();
 
@@ -243,14 +243,14 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         // Generate request ID from trace identifier
         var requestId = httpContext.TraceIdentifier;
 
-        // Get framework version
-        var frameworkVersion = Environment.Version.ToString();
+        // Get .NET runtime version
+        var runtimeVersion = Environment.Version.ToString();
 
         // Build software stack information
         var softwareStack = new Dictionary<string, object>
         {
             { "framework", "aspnetcore" },
-            { "frameworkVersion", frameworkVersion }
+            { "runtimeVersion", runtimeVersion }
         };
 
         // Build HTTP connection details

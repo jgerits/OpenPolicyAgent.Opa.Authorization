@@ -79,6 +79,18 @@ public class OpaAuthorizationOptions
     public bool DisableAuthorization { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets the claim types that should be extracted and included in the groups array.
+    /// These claims will be available in input.context.identity.groups in OPA policies.
+    /// Default includes standard role claim types.
+    /// </summary>
+    public HashSet<string> GroupClaimTypes { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        System.Security.Claims.ClaimTypes.Role,
+        "role",
+        "groups"
+    };
+
+    /// <summary>
     /// Validates the configuration options.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>

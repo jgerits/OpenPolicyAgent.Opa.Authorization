@@ -185,6 +185,12 @@ builder.Services.AddOpaAuthorization(options =>
     // Or clear and start fresh:
     // options.ExcludedHeaders.Clear();
 
+    // Customize which claim types are treated as groups (default includes standard role claim types)
+    // These claims will be extracted and included in input.context.identity.groups in OPA policies
+    options.GroupClaimTypes.Add("custom-group-claim");
+    // Or replace the defaults entirely:
+    // options.GroupClaimTypes = new HashSet<string> { "custom-role", "custom-group" };
+
     // Disable OPA authorization entirely (default: false)
     // When enabled, no calls are made to the OPA server and all authorization attempts are logged locally
     // Useful for development and debugging
@@ -290,7 +296,7 @@ The package sends the following input to OPA (inspired by Trino's OPA integratio
     "requestId": "<unique request identifier (trace ID)>",
     "softwareStack": {
       "framework": "aspnetcore",
-      "frameworkVersion": "<.NET runtime version>"
+      "runtimeVersion": "<.NET runtime version>"
     },
     "http": {
       "host": "<request host>",

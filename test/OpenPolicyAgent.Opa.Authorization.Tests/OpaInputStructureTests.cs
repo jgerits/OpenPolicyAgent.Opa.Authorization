@@ -36,7 +36,7 @@ public class OpaInputStructureTests
                 softwareStack = new
                 {
                     framework = "aspnetcore",
-                    frameworkVersion = "8.0.0"
+                    runtimeVersion = "8.0.0"
                 },
                 http = new
                 {
@@ -137,14 +137,14 @@ public class OpaInputStructureTests
         var softwareStack = new
         {
             framework = "aspnetcore",
-            frameworkVersion = Environment.Version.ToString()
+            runtimeVersion = Environment.Version.ToString()
         };
 
         var json = JsonSerializer.Serialize(softwareStack);
         
         Assert.Contains("\"framework\"", json);
         Assert.Contains("aspnetcore", json);
-        Assert.Contains("\"frameworkVersion\"", json);
+        Assert.Contains("\"runtimeVersion\"", json);
     }
 
     [Fact]
@@ -175,11 +175,11 @@ public class OpaInputStructureTests
                     groups = new[] { "some-group" },
                     claims = new object[] { }
                 },
-                requestId = "20250718_081710_03427_aspnetcore", // analogous to queryId
+                requestId = "0HMVD92LQVPU3:00000001", // realistic TraceIdentifier format
                 softwareStack = new
                 {
-                    framework = "aspnetcore", // analogous to trinoVersion
-                    frameworkVersion = "8.0.0"
+                    framework = "aspnetcore",
+                    runtimeVersion = "8.0.0"
                 },
                 http = new
                 {

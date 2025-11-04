@@ -232,7 +232,7 @@ Our structure is inspired by Trino but adapted for .NET:
 | `context.identity.user` | `context.identity.user` ✓ |
 | `context.identity.groups` | `context.identity.groups` ✓ |
 | `context.queryId` | `context.requestId` (adapted) |
-| `context.softwareStack.trinoVersion` | `context.softwareStack.framework` + `frameworkVersion` (adapted) |
+| `context.softwareStack.trinoVersion` | `context.softwareStack.framework` + `runtimeVersion` (adapted) |
 | `action.operation` | `action.operation` ✓ |
 | `action.resource.table.*` | `action.resource.endpoint.*` (adapted for web APIs) |
 

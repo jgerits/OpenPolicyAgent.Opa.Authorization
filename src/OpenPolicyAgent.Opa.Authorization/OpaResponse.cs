@@ -12,8 +12,8 @@ public class OpaResponse
     /// <summary>
     /// Gets or sets the authorization decision.
     /// </summary>
-    [JsonPropertyName("result")]
-    [JsonProperty("result")]
+    [JsonPropertyName("allow")]
+    [JsonProperty("allow")]
     public bool Decision { get; set; }
 
     /// <summary>

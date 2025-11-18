@@ -186,7 +186,7 @@ For more information, see:
 
 ```json
 {
-  "allow": true,
+  "result": true,
   "reason": {
     "en": "Access granted"
   }
@@ -197,7 +197,7 @@ Or when denied:
 
 ```json
 {
-  "allow": false,
+  "result": false,
   "reason": {
     "en": "Admin role required for this action"
   }
@@ -229,7 +229,7 @@ Response includes comprehensive debugging information:
 ```json
 {
   "result": {
-    "allow": true,
+    "result": true,
     "decision_log": {
       "timestamp": 1699123456789,
       "subject": {"id": "john", "claims_count": 3},

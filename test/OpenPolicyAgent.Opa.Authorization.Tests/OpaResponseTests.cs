@@ -97,7 +97,7 @@ public class OpaResponseTests
     public void Deserialization_ShouldWorkCorrectly()
     {
         // Arrange
-        var json = @"{""result"": true, ""reason"": ""Access granted""}";
+        var json = @"{""allow"": true, ""reason"": ""Access granted""}";
 
         // Act
         var response = JsonSerializer.Deserialize<OpaResponse>(json);
@@ -128,7 +128,7 @@ public class OpaResponseTests
     public void Deserialization_WithComplexReason_ShouldWorkCorrectly()
     {
         // Arrange - This is the format returned by OPA when querying a package (e.g., /v1/data/authz)
-        var json = @"{""result"": true, ""reason"": {""en"": ""Access granted"", ""es"": ""Acceso concedido""}}";
+        var json = @"{""allow"": true, ""reason"": {""en"": ""Access granted"", ""es"": ""Acceso concedido""}}";
 
         // Act
         var response = JsonSerializer.Deserialize<OpaResponse>(json);
@@ -146,7 +146,7 @@ public class OpaResponseTests
     {
         // Arrange - OPA policies may return extra fields alongside allow and reason
         var json = @"{
-            ""result"": true,
+            ""allow"": true,
             ""debug_info"": {""opa_version"": ""1.9.0""},
             ""is_authenticated"": true,
             ""matched_rules"": [""authenticated_user""],
@@ -167,7 +167,7 @@ public class OpaResponseTests
     public void Deserialization_WithEmptyReasonObject_ShouldReturnNullReason()
     {
         // Arrange
-        var json = @"{""result"": true, ""reason"": {}}";
+        var json = @"{""allow"": true, ""reason"": {}}";
 
         // Act
         var response = JsonSerializer.Deserialize<OpaResponse>(json);

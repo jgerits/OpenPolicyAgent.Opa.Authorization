@@ -60,8 +60,8 @@ public class OpaHealthCheck : IHealthCheck
             {
                 // If we get an OpaException, it means we successfully connected to OPA
                 // Even if the policy doesn't exist, OPA responded
-                _logger.LogDebug("OPA health check received expected response: {Message}", ex.Message);
-                return HealthCheckResult.Healthy("OPA server is reachable and responding");
+                _logger.LogDebug("OPA health check received response: {Message}", ex.Message);
+                return !ex.Message.Contains("succeeded") ? HealthCheckResult.Unhealthy("Opa did not response") : HealthCheckResult.Healthy("OPA server is reachable and responding");
             }
 
             // If we get here without an exception, OPA is healthy

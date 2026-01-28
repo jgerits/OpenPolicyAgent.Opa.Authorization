@@ -191,7 +191,8 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during OPA authorization");
+            _logger.LogError(ex, "Unexpected error during OPA authorization for policy '{PolicyPath}': {ErrorType}", 
+                policyPath ?? "(default)", ex.GetType().Name);
             context.Fail();
         }
     }

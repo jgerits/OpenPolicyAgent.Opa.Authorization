@@ -117,6 +117,14 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         var policyPath = opaAttribute?.PolicyPath ?? requirement.PolicyPath ?? _options.DefaultPolicyPath;
         var extraInformation = opaAttribute?.ExtraInformation ?? requirement.ExtraInformation;
 
+        // Validate policy path is not empty or whitespace
+        if (string.IsNullOrWhiteSpace(policyPath))
+        {
+            _logger.LogError("OPA policy path is not configured. Please set DefaultPolicyPath in options or specify a policy path in the OpaAuthorize attribute.");
+            context.Fail();
+            return;
+        }
+
         try
         {
             // Build OPA input
@@ -191,7 +199,8 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error during OPA authorization");
+            _logger.LogError(ex, "Unexpected error during OPA authorization for policy '{PolicyPath}': {ErrorType}", 
+                policyPath ?? "(default)", ex.GetType().Name);
             context.Fail();
         }
     }
@@ -298,7 +307,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         if (_options.IncludeHeaders)
         {
             headers = httpContext.Request.Headers
-                .Where(kvp => !_options.ExcludedHeaders.Contains(kvp.Key))
+                .Where(kvp => !_options.ExcludedHeaders.Contains(kvp.Key, StringComparer.OrdinalIgnoreCase))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToString());
         }
         else

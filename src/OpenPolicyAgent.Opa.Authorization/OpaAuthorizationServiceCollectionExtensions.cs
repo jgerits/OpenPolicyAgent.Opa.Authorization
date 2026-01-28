@@ -29,15 +29,8 @@ public static class OpaAuthorizationServiceCollectionExtensions
         this IServiceCollection services,
         Action<OpaAuthorizationOptions> configureOptions)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-
-        if (configureOptions == null)
-        {
-            throw new ArgumentNullException(nameof(configureOptions));
-        }
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configureOptions);
 
         // Configure options with validation
         services.Configure(configureOptions);

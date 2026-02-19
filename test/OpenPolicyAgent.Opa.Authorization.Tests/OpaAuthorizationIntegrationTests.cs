@@ -56,10 +56,23 @@ public class OpaAuthorizationIntegrationTests
         var policyPath = "test/policy/path";
         
         // Act
-        var requirement = new OpaAuthorizationRequirement(policyPath);
+        var requirement = new OpaAuthorizationRequirement(policyPath: policyPath);
 
         // Assert
         Assert.Equal(policyPath, requirement.PolicyPath);
+    }
+
+    [Fact]
+    public void OpaAuthorizationRequirement_WithPolicies_StoresPolicies()
+    {
+        // Arrange
+        var policies = new[] { "policy1", "policy2" };
+
+        // Act
+        var requirement = new OpaAuthorizationRequirement(policies: policies);
+
+        // Assert
+        Assert.Equal(policies, requirement.Policies);
     }
 
     [Fact]
@@ -71,6 +84,29 @@ public class OpaAuthorizationIntegrationTests
         // Assert
         Assert.IsAssignableFrom<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>(attribute);
         Assert.Equal(OpaAuthorizationDefaults.PolicyName, attribute.Policy);
+    }
+
+    [Fact]
+    public void OpaAuthorizeAttribute_WithPolicies_StoresPolicies()
+    {
+        // Arrange
+        var attribute = new OpaAuthorizeAttribute("policy1", "policy2");
+
+        // Assert
+        Assert.Equal(new[] { "policy1", "policy2" }, attribute.Policies);
+        Assert.Null(attribute.PolicyPath); // PolicyPath should be null when using this constructor
+    }
+
+    [Fact]
+    public void OpaAuthorizeAttribute_WithPolicyPath_CanBeSetExplicitly()
+    {
+        // Arrange
+        var attribute = new OpaAuthorizeAttribute("policy1") { PolicyPath = "custom/path" };
+
+        // Assert
+        Assert.Single(attribute.Policies);
+        Assert.Equal("policy1", attribute.Policies[0]);
+        Assert.Equal("custom/path", attribute.PolicyPath);
     }
 
     [Fact]

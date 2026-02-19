@@ -116,11 +116,12 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         // Use attribute values if available, otherwise use requirement values
         var policyPath = opaAttribute?.PolicyPath ?? requirement.PolicyPath ?? _options.DefaultPolicyPath;
         var extraInformation = opaAttribute?.ExtraInformation ?? requirement.ExtraInformation;
+        var policies = (opaAttribute?.Policies ?? requirement.Policies).ToArray();
 
         try
         {
             // Build OPA input
-            var input = BuildOpaInput(httpContext, context, extraInformation);
+            var input = BuildOpaInput(httpContext, context, extraInformation, policies);
             
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -201,7 +202,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
     /// Builds the input object for OPA policy evaluation.
     /// The structure is inspired by Trino's OPA integration but adapted for .NET/ASP.NET Core.
     /// </summary>
-    private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation)
+    private Dictionary<string, object> BuildOpaInput(HttpContext httpContext, AuthorizationHandlerContext authContext, string? extraInformation, string[] policies)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         ArgumentNullException.ThrowIfNull(authContext);
@@ -331,7 +332,8 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         var input = new Dictionary<string, object>
         {
             { "context", context },
-            { "action", action }
+            { "action", action },
+            { "policies", policies }
         };
 
         return input;

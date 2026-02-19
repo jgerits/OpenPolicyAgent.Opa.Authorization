@@ -18,12 +18,19 @@ public class OpaAuthorizationRequirement : IAuthorizationRequirement
     public string? ExtraInformation { get; }
 
     /// <summary>
+    /// Gets the list of policy names to include in the OPA input.
+    /// </summary>
+    public IEnumerable<string> Policies { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="OpaAuthorizationRequirement"/> class.
     /// </summary>
+    /// <param name="policies">The list of OPA policy names.</param>
     /// <param name="policyPath">The optional OPA policy path to evaluate.</param>
     /// <param name="extraInformation">Optional extra information to include in the policy evaluation.</param>
-    public OpaAuthorizationRequirement(string? policyPath = null, string? extraInformation = null)
+    public OpaAuthorizationRequirement(IEnumerable<string>? policies = null, string? policyPath = null, string? extraInformation = null)
     {
+        Policies = policies ?? Enumerable.Empty<string>();
         PolicyPath = policyPath;
         ExtraInformation = extraInformation;
     }

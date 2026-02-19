@@ -14,17 +14,19 @@ public class OpaAuthorizeAttributeTests
     }
 
     [Fact]
-    public void Constructor_WithPolicyPath_ShouldSetPolicyPath()
+    public void Constructor_WithPolicyName_ShouldSetPolicies()
     {
         // Arrange
-        var policyPath = "authz/myapp/allow";
+        var policyName = "authz/myapp/allow";
 
         // Act
-        var attribute = new OpaAuthorizeAttribute(policyPath);
+        var attribute = new OpaAuthorizeAttribute(policyName);
 
         // Assert
         Assert.Equal(OpaAuthorizationDefaults.PolicyName, attribute.Policy);
-        Assert.Equal(policyPath, attribute.PolicyPath);
+        Assert.Single(attribute.Policies);
+        Assert.Equal(policyName, attribute.Policies[0]);
+        Assert.Null(attribute.PolicyPath);
     }
 
     [Fact]

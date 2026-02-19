@@ -12,6 +12,19 @@ allow if {
 	input.context.identity.user != ""
 }
 
+# Allow if the request matches any of the required policies
+allow if {
+	some policy in input.policies
+	policy == "policy.read"
+	input.action.operation == "GET"
+}
+
+allow if {
+	some policy in input.policies
+	policy == "policy.admin"
+	has_role("admin")
+}
+
 # Allow POST requests to /api/documents only for admin users
 # Can also check input.context.metadata for extra information
 allow if {

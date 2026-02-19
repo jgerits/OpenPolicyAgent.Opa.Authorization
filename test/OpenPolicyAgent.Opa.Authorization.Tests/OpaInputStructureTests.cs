@@ -58,7 +58,8 @@ public class OpaInputStructureTests
                 },
                 protocol = "HTTP/1.1",
                 headers = new { }
-            }
+            },
+            policies = new[] { "policy1", "policy2" }
         };
 
         var json = JsonSerializer.Serialize(expectedStructure, new JsonSerializerOptions { WriteIndented = true });
@@ -73,6 +74,9 @@ public class OpaInputStructureTests
         Assert.Contains("\"operation\"", json);
         Assert.Contains("\"requestId\"", json);
         Assert.Contains("\"softwareStack\"", json);
+        Assert.Contains("\"policies\"", json);
+        Assert.Contains("\"policy1\"", json);
+        Assert.Contains("\"policy2\"", json);
     }
 
     [Fact]

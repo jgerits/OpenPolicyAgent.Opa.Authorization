@@ -16,6 +16,11 @@ public class OpaAuthorizeAttribute : AuthorizeAttribute
     public string? PolicyPath { get; set; }
 
     /// <summary>
+    /// Gets the list of policy names to be sent to OPA for evaluation.
+    /// </summary>
+    public string[] Policies { get; } = Array.Empty<string>();
+
+    /// <summary>
     /// Gets or sets additional information to include in the OPA policy evaluation.
     /// This data will be available under input.context.metadata in the OPA policy.
     /// </summary>
@@ -30,24 +35,13 @@ public class OpaAuthorizeAttribute : AuthorizeAttribute
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="OpaAuthorizeAttribute"/> class with a specified policy path.
+    /// Initializes a new instance of the <see cref="OpaAuthorizeAttribute"/> class with specified policy names.
     /// </summary>
-    /// <param name="policyPath">The OPA policy path to evaluate.</param>
-    public OpaAuthorizeAttribute(string policyPath)
+    /// <param name="policies">The list of OPA policy names to evaluate.</param>
+    public OpaAuthorizeAttribute(params string[] policies)
     {
         Policy = OpaAuthorizationDefaults.PolicyName;
-        PolicyPath = policyPath;
+        Policies = policies;
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="OpaAuthorizeAttribute"/> class with a specified policy path and extra information.
-    /// </summary>
-    /// <param name="policyPath">The OPA policy path to evaluate.</param>
-    /// <param name="extraInformation">Additional information to include in the policy evaluation.</param>
-    public OpaAuthorizeAttribute(string policyPath, string extraInformation)
-    {
-        Policy = OpaAuthorizationDefaults.PolicyName;
-        PolicyPath = policyPath;
-        ExtraInformation = extraInformation;
-    }
 }

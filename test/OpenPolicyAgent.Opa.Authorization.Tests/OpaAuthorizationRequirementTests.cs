@@ -19,7 +19,7 @@ public class OpaAuthorizationRequirementTests
         var policyPath = "authz/myapp/allow";
 
         // Act
-        var requirement = new OpaAuthorizationRequirement(policyPath);
+        var requirement = new OpaAuthorizationRequirement(policyPath: policyPath);
 
         // Assert
         Assert.Equal(policyPath, requirement.PolicyPath);

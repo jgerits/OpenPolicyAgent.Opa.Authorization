@@ -105,11 +105,11 @@ The `[OpaAuthorize]` attribute on controller actions triggers OPA policy evaluat
 [HttpGet]
 public IActionResult GetAll() { ... }
 
-[OpaAuthorize("authz/documents")]  // Uses custom policy path
+[OpaAuthorize(PolicyPath = "authz/documents")]  // Uses custom policy path
 [HttpGet("{id}")]
 public IActionResult GetById(int id) { ... }
 
-[OpaAuthorize("authz", "CreateDocument")]  // With extra metadata
+[OpaAuthorize(PolicyPath = "authz", ExtraInformation = "CreateDocument")]  // With extra metadata
 [HttpPost]
 public IActionResult Create([FromBody] CreateDocumentRequest request) { ... }
 ```

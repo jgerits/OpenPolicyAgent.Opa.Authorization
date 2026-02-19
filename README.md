@@ -72,16 +72,17 @@ public class DocumentsController : ControllerBase
         return Ok(new[] { "document1", "document2" });
     }
 
-    // Uses a custom policy path for this specific action
-    [OpaAuthorize("authz/documents")]
+    // Uses a custom policy path for this specific action (legacy behavior)
+    [OpaAuthorize(PolicyPath = "authz/documents")]
     [HttpGet("{id}")]
     public IActionResult GetById(int id)
     {
         return Ok($"document{id}");
     }
 
-    // Includes extra information (available as input.context.metadata in OPA)
-    [OpaAuthorize("authz/documents", "AdminOperation")]
+    // Specifies multiple policies (new behavior)
+    // Access is granted if the OPA policy allows it based on any of these policy names
+    [OpaAuthorize("policy.read", "policy.admin")]
     [HttpPost]
     public IActionResult Create([FromBody] object document)
     {
@@ -102,17 +103,16 @@ import rego.v1
 # Default deny - always deny by default for security
 default allow := false
 
-# Allow GET requests to /api/documents for authenticated users
+# Allow if the request matches any of the required policies
 allow if {
+	some policy in input.policies
+	policy == "policy.read"
 	input.action.operation == "GET"
-	startswith(input.action.resource.endpoint.path, "/api/documents")
-	input.context.identity.user != ""
 }
 
-# Allow POST requests only for admin users
 allow if {
-	input.action.operation == "POST"
-	startswith(input.action.resource.endpoint.path, "/api/documents")
+	some policy in input.policies
+	policy == "policy.admin"
 	has_role("admin")
 }
 
@@ -316,14 +316,15 @@ The package sends the following input to OPA (inspired by Trino's OPA integratio
     },
     "protocol": "<HTTP protocol>",
     "headers": {/* request headers */}
-  }
+  },
+  "policies": [/* array of policy names from attribute */]
 }
 ```
 
 **Note**: 
 - The structure is inspired by Trino's OPA integration but adapted to make sense for .NET/ASP.NET Core applications.
 - The `token` field in `context.identity` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
-- The `metadata` field is only included when using `[OpaAuthorize("policy/path", "Extra Information")]` with the second parameter.
+- The `metadata` field is only included when using `ExtaInformation` property in `[OpaAuthorize]`.
 - The `headers` field in `action` respects the `IncludeHeaders` and `ExcludedHeaders` configuration. By default, sensitive headers like Authorization, Cookie, X-API-Key, and X-Auth-Token are excluded.
 
 ## OPA Response Schema
@@ -389,12 +390,12 @@ decision_log := {
 
 To use the debug policy:
 
-1. **Configure your endpoint to use the debug policy path**:
-   ```csharp
-   [OpaAuthorize("authz/debug")]
-   [HttpGet]
-   public IActionResult GetDocument() { ... }
-   ```
+392: 1. **Configure your endpoint to use the debug policy path**:
+393:    ```csharp
+394:    [OpaAuthorize(PolicyPath = "authz/debug")]
+395:    [HttpGet]
+396:    public IActionResult GetDocument() { ... }
+397:    ```
 
 2. **Query the decision log** alongside your allow decision:
    ```bash

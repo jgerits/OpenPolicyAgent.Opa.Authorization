@@ -228,6 +228,32 @@ public class OpaAuthorizationOptionsValidationTests
     }
 
     [Fact]
+    public void ClaimFilters_DefaultToIncludeAllClaims()
+    {
+        // Arrange & Act
+        var options = new OpaAuthorizationOptions();
+
+        // Assert
+        Assert.Empty(options.IncludedClaimTypes);
+        Assert.Empty(options.ExcludedClaimTypes);
+    }
+
+    [Fact]
+    public void ClaimFilters_ShouldBeCaseInsensitive()
+    {
+        // Arrange
+        var options = new OpaAuthorizationOptions();
+
+        // Act
+        options.ExcludedClaimTypes.Add("email");
+        options.IncludedClaimTypes.Add("role");
+
+        // Assert
+        Assert.Contains("EMAIL", options.ExcludedClaimTypes);
+        Assert.Contains("ROLE", options.IncludedClaimTypes);
+    }
+
+    [Fact]
     public void DisableAuthorization_DefaultValue_ShouldBeFalse()
     {
         // Arrange & Act

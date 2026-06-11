@@ -65,6 +65,18 @@ public class OpaAuthorizationOptions
     };
 
     /// <summary>
+    /// Gets or sets the claim types to exclude from the OPA input.
+    /// Ignored when <see cref="IncludedClaimTypes"/> contains one or more entries.
+    /// </summary>
+    public HashSet<string> ExcludedClaimTypes { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Gets or sets the only claim types to include in the OPA input.
+    /// When empty, all claims except <see cref="ExcludedClaimTypes"/> are included.
+    /// </summary>
+    public HashSet<string> IncludedClaimTypes { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Gets or sets whether to include request headers in the OPA input.
     /// When false, no headers are sent to OPA (overrides ExcludedHeaders).
     /// Default is true.

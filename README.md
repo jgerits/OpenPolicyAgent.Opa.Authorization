@@ -167,7 +167,7 @@ builder.Services.AddOpaAuthorization(options =>
     options.AllowUnauthenticated = false;
 
     // Include authorization token in OPA input (default: false)
-    // When enabled, the Authorization header value is included in input.subject.token
+    // When enabled, the Authorization header value is included in input.context.identity.token
     options.IncludeAuthorizationToken = false;
 
     // Request timeout for OPA calls (default: 30 seconds)
@@ -184,6 +184,11 @@ builder.Services.AddOpaAuthorization(options =>
     options.ExcludedHeaders.Add("Custom-Sensitive-Header");
     // Or clear and start fresh:
     // options.ExcludedHeaders.Clear();
+
+    // Customize which claims are sent to OPA.
+    // IncludedClaimTypes acts as an allow-list when it contains entries.
+    options.ExcludedClaimTypes.Add("sensitive-claim");
+    // options.IncludedClaimTypes.Add(ClaimTypes.Role);
 
     // Customize which claim types are treated as groups (default includes standard role claim types)
     // These claims will be extracted and included in input.context.identity.groups in OPA policies
@@ -255,7 +260,7 @@ builder.Services.AddHealthChecks()
 app.MapHealthChecks("/health/ready");
 ```
 
-The health check verifies that the OPA server is reachable and responding.
+The health check calls OPA's `/health` endpoint and verifies that the OPA server is reachable and responding. When `DisableAuthorization` is enabled, the health check returns healthy without making an HTTP call.
 
 ## Custom Context Data Provider
 
@@ -279,6 +284,19 @@ builder.Services.AddOpaContextDataProvider<CustomContextDataProvider>();
 ```
 
 This data will be available under `input.context.data` in your OPA policy.
+
+## Custom OPA Evaluator
+
+The default evaluator uses the `OpenPolicyAgent.Opa` SDK. For tests, custom transport, or resilience policies, replace `IOpaPolicyEvaluator` after calling `AddOpaAuthorization`:
+
+```csharp
+builder.Services.AddOpaAuthorization(options =>
+{
+    options.OpaUrl = "http://localhost:8181";
+});
+
+builder.Services.AddSingleton<IOpaPolicyEvaluator, CustomOpaPolicyEvaluator>();
+```
 
 ## OPA Input Schema
 
@@ -324,8 +342,9 @@ The package sends the following input to OPA (inspired by Trino's OPA integratio
 **Note**: 
 - The structure is inspired by Trino's OPA integration but adapted to make sense for .NET/ASP.NET Core applications.
 - The `token` field in `context.identity` is only included when `IncludeAuthorizationToken` is set to `true` in the options and an Authorization header is present.
-- The `metadata` field is only included when using `ExtaInformation` property in `[OpaAuthorize]`.
+- The `metadata` field is only included when using the `ExtraInformation` property in `[OpaAuthorize]`.
 - The `headers` field in `action` respects the `IncludeHeaders` and `ExcludedHeaders` configuration. By default, sensitive headers like Authorization, Cookie, X-API-Key, and X-Auth-Token are excluded.
+- The `claims` field in `context.identity` respects `IncludedClaimTypes` and `ExcludedClaimTypes`. If `IncludedClaimTypes` contains entries, it is treated as an allow-list.
 
 ## OPA Response Schema
 

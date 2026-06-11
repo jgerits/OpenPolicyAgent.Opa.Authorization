@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 
 namespace OpenPolicyAgent.Opa.Authorization.Tests;
 
@@ -23,6 +24,9 @@ public class OpaAuthorizationServiceCollectionExtensionsTests
 
         var httpContextAccessor = provider.GetService<IHttpContextAccessor>();
         Assert.NotNull(httpContextAccessor);
+
+        var opaPolicyEvaluator = provider.GetService<IOpaPolicyEvaluator>();
+        Assert.NotNull(opaPolicyEvaluator);
     }
 
     [Fact]
@@ -44,6 +48,38 @@ public class OpaAuthorizationServiceCollectionExtensionsTests
         var options = provider.GetService<Microsoft.Extensions.Options.IOptions<OpaAuthorizationOptions>>();
         Assert.NotNull(options);
         Assert.Equal(expectedUrl, options.Value.OpaUrl);
+    }
+
+    [Fact]
+    public async Task AddOpaAuthorization_WhenDisabled_ShouldNotRequireValidOpaUrl()
+    {
+        // Arrange
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.Name, "alice")
+            ], "test"))
+        };
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IHttpContextAccessor>(new HttpContextAccessor { HttpContext = httpContext });
+
+        // Act
+        services.AddOpaAuthorization(options =>
+        {
+            options.DisableAuthorization = true;
+            options.OpaUrl = "invalid-url";
+        });
+        var provider = services.BuildServiceProvider();
+        var authorizationService = provider.GetRequiredService<IAuthorizationService>();
+        var result = await authorizationService.AuthorizeAsync(
+            httpContext.User,
+            resource: null,
+            OpaAuthorizationDefaults.PolicyName);
+
+        // Assert
+        Assert.True(result.Succeeded);
     }
 
     [Fact]

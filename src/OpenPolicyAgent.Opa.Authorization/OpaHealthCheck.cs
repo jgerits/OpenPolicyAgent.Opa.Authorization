@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OpenPolicyAgent.Opa;
 
 namespace OpenPolicyAgent.Opa.Authorization;
 
@@ -11,24 +10,27 @@ namespace OpenPolicyAgent.Opa.Authorization;
 public class OpaHealthCheck : IHealthCheck
 {
     private readonly OpaAuthorizationOptions _options;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<OpaHealthCheck> _logger;
-    private readonly OpaClient _opaClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpaHealthCheck"/> class.
     /// </summary>
     /// <param name="options">The OPA authorization options.</param>
+    /// <param name="httpClientFactory">The HTTP client factory.</param>
     /// <param name="logger">The logger.</param>
-    public OpaHealthCheck(IOptions<OpaAuthorizationOptions> options, ILogger<OpaHealthCheck> logger)
+    public OpaHealthCheck(
+        IOptions<OpaAuthorizationOptions> options,
+        IHttpClientFactory httpClientFactory,
+        ILogger<OpaHealthCheck> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(logger);
 
         _options = options.Value;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
-
-        var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
-        _opaClient = new OpaClient(opaUrl);
     }
 
     /// <summary>
@@ -41,31 +43,36 @@ public class OpaHealthCheck : IHealthCheck
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
+        if (_options.DisableAuthorization)
+        {
+            return HealthCheckResult.Healthy("OPA authorization is disabled.");
+        }
+
         try
         {
-            // Try a simple policy check to verify OPA is responsive
-            // This uses a minimal input that should work with any OPA deployment
-            var testInput = new { test = "health_check" };
-            
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(_options.RequestTimeout);
 
-            // Try to evaluate a non-existent policy - we just want to verify connectivity
-            // OPA will return an error but that's fine - it proves OPA is reachable
-            try
+            var opaUrl = OpaServerUrlResolver.Resolve(_options);
+            var healthUri = new Uri(new Uri(EnsureTrailingSlash(opaUrl)), "health");
+            var client = _httpClientFactory.CreateClient();
+
+            using var response = await client.GetAsync(
+                healthUri,
+                HttpCompletionOption.ResponseHeadersRead,
+                cts.Token);
+
+            if (response.IsSuccessStatusCode)
             {
-                await _opaClient.Check("data/nonexistent/healthcheck", testInput);
-            }
-            catch (OpaException ex)
-            {
-                // If we get an OpaException, it means we successfully connected to OPA
-                // Even if the policy doesn't exist, OPA responded
-                _logger.LogDebug("OPA health check received response: {Message}", ex.Message);
-                return !ex.Message.Contains("succeeded") ? HealthCheckResult.Unhealthy("Opa did not response") : HealthCheckResult.Healthy("OPA server is reachable and responding");
+                return HealthCheckResult.Healthy("OPA server is reachable and responding.");
             }
 
-            // If we get here without an exception, OPA is healthy
-            return HealthCheckResult.Healthy("OPA server is reachable and responding");
+            _logger.LogWarning(
+                "OPA health endpoint returned status code {StatusCode}",
+                response.StatusCode);
+
+            return HealthCheckResult.Unhealthy(
+                $"OPA health endpoint returned status code {(int)response.StatusCode}.");
         }
         catch (HttpRequestException ex)
         {
@@ -88,5 +95,10 @@ public class OpaHealthCheck : IHealthCheck
                 $"Unexpected error checking OPA server health: {ex.Message}",
                 ex);
         }
+    }
+
+    private static string EnsureTrailingSlash(string url)
+    {
+        return url.EndsWith("/", StringComparison.Ordinal) ? url : url + "/";
     }
 }

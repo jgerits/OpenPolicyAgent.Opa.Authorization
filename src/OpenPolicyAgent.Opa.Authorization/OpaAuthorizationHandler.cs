@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using OpenPolicyAgent.Opa;
 
@@ -14,7 +15,7 @@ namespace OpenPolicyAgent.Opa.Authorization;
 /// </summary>
 public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequirement>
 {
-    private readonly OpaClient? _opaClient;
+    private readonly IOpaPolicyEvaluator _opaPolicyEvaluator;
     private readonly OpaAuthorizationOptions _options;
     private readonly ILogger<OpaAuthorizationHandler> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -34,14 +35,39 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         IHttpContextAccessor httpContextAccessor,
         ILogger<OpaAuthorizationHandler> logger,
         IOpaContextDataProvider? contextDataProvider = null)
+        : this(
+            options,
+            httpContextAccessor,
+            logger,
+            new OpaPolicyEvaluator(options, NullLogger<OpaClient>.Instance),
+            contextDataProvider)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OpaAuthorizationHandler"/> class.
+    /// </summary>
+    /// <param name="options">The OPA authorization options.</param>
+    /// <param name="httpContextAccessor">The HTTP context accessor.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="opaPolicyEvaluator">The OPA policy evaluator.</param>
+    /// <param name="contextDataProvider">Optional context data provider.</param>
+    public OpaAuthorizationHandler(
+        IOptions<OpaAuthorizationOptions> options,
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<OpaAuthorizationHandler> logger,
+        IOpaPolicyEvaluator opaPolicyEvaluator,
+        IOpaContextDataProvider? contextDataProvider = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(httpContextAccessor);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(opaPolicyEvaluator);
 
         _options = options.Value;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
+        _opaPolicyEvaluator = opaPolicyEvaluator;
         _contextDataProvider = contextDataProvider;
 
         // Validate options
@@ -58,8 +84,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         // Initialize OPA client only if authorization is not disabled
         if (!_options.DisableAuthorization)
         {
-            var opaUrl = _options.OpaUrl ?? Environment.GetEnvironmentVariable("OPA_URL") ?? "http://localhost:8181";
-            _opaClient = new OpaClient(opaUrl);
+            var opaUrl = OpaServerUrlResolver.Resolve(_options);
             _logger.LogInformation("OpaAuthorizationHandler initialized with OPA URL: {OpaUrl}", opaUrl);
         }
         else
@@ -128,25 +153,17 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
                 _logger.LogDebug("OPA input for request: {Input}", JsonSerializer.Serialize(input));
             }
 
-            // Ensure OPA client is initialized (should never be null at this point)
-            if (_opaClient == null)
-            {
-                _logger.LogError("OPA client is not initialized. This should not happen.");
-                context.Fail();
-                return;
-            }
-
             // Evaluate OPA policy
             OpaResponse? response;
             if (!string.IsNullOrEmpty(policyPath))
             {
                 _logger.LogTrace("Evaluating OPA policy at path: {PolicyPath}", policyPath);
-                response = await _opaClient.Evaluate<OpaResponse>(policyPath, input);
+                response = await _opaPolicyEvaluator.EvaluateAsync(policyPath, input, httpContext.RequestAborted);
             }
             else
             {
                 _logger.LogTrace("Evaluating default OPA policy");
-                response = await _opaClient.EvaluateDefault<OpaResponse>(input);
+                response = await _opaPolicyEvaluator.EvaluateDefaultAsync(input, httpContext.RequestAborted);
             }
 
             if (response == null)
@@ -173,12 +190,6 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
                 _logger.LogInformation("OPA policy evaluation failed: {Reason}", reason);
                 context.Fail();
             }
-        }
-        catch (OpaException ex)
-        {
-            _logger.LogError(ex, "Error evaluating OPA policy at path '{PolicyPath}'. Message: {Message}", 
-                policyPath ?? "(default)", ex.Message);
-            context.Fail();
         }
         catch (HttpRequestException ex)
         {
@@ -210,7 +221,9 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         var userName = authContext.User.Identity?.Name ?? "";
         
         // Convert claims to a serializable format
-        var claimsList = authContext.User.Claims.Select(c => new 
+        var claimsList = authContext.User.Claims
+            .Where(ShouldIncludeClaim)
+            .Select(c => new 
         { 
             type = c.Type, 
             value = c.Value,
@@ -220,6 +233,7 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         
         // Extract groups from role claims based on configured claim types
         var groups = authContext.User.Claims
+            .Where(ShouldIncludeClaim)
             .Where(c => _options.GroupClaimTypes.Contains(c.Type))
             .Select(c => c.Value)
             .ToList();
@@ -337,5 +351,15 @@ public class OpaAuthorizationHandler : AuthorizationHandler<OpaAuthorizationRequ
         };
 
         return input;
+    }
+
+    private bool ShouldIncludeClaim(Claim claim)
+    {
+        if (_options.IncludedClaimTypes.Count > 0)
+        {
+            return _options.IncludedClaimTypes.Contains(claim.Type);
+        }
+
+        return !_options.ExcludedClaimTypes.Contains(claim.Type);
     }
 }

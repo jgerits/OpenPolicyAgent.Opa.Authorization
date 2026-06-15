@@ -62,26 +62,10 @@ public class OpaHealthCheckTests
         };
         configureOptions?.Invoke(options);
 
-        var httpClientFactory = new TestHttpClientFactory(new HttpClient(handler));
         return new OpaHealthCheck(
             Options.Create(options),
-            httpClientFactory,
-            NullLogger<OpaHealthCheck>.Instance);
-    }
-
-    private sealed class TestHttpClientFactory : IHttpClientFactory
-    {
-        private readonly HttpClient _httpClient;
-
-        public TestHttpClientFactory(HttpClient httpClient)
-        {
-            _httpClient = httpClient;
-        }
-
-        public HttpClient CreateClient(string name)
-        {
-            return _httpClient;
-        }
+            NullLogger<OpaHealthCheck>.Instance,
+            new HttpMessageInvoker(handler));
     }
 
     private sealed class TestHttpMessageHandler : HttpMessageHandler

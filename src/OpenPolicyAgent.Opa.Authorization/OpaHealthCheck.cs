@@ -9,28 +9,36 @@ namespace OpenPolicyAgent.Opa.Authorization;
 /// </summary>
 public class OpaHealthCheck : IHealthCheck
 {
+    private static readonly HttpClient SharedHttpClient = new();
+
     private readonly OpaAuthorizationOptions _options;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly HttpMessageInvoker _httpMessageInvoker;
     private readonly ILogger<OpaHealthCheck> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpaHealthCheck"/> class.
     /// </summary>
     /// <param name="options">The OPA authorization options.</param>
-    /// <param name="httpClientFactory">The HTTP client factory.</param>
     /// <param name="logger">The logger.</param>
     public OpaHealthCheck(
         IOptions<OpaAuthorizationOptions> options,
-        IHttpClientFactory httpClientFactory,
         ILogger<OpaHealthCheck> logger)
+        : this(options, logger, SharedHttpClient)
+    {
+    }
+
+    internal OpaHealthCheck(
+        IOptions<OpaAuthorizationOptions> options,
+        ILogger<OpaHealthCheck> logger,
+        HttpMessageInvoker httpMessageInvoker)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(httpMessageInvoker);
 
         _options = options.Value;
-        _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _httpMessageInvoker = httpMessageInvoker;
     }
 
     /// <summary>
@@ -55,12 +63,9 @@ public class OpaHealthCheck : IHealthCheck
 
             var opaUrl = OpaServerUrlResolver.Resolve(_options);
             var healthUri = new Uri(new Uri(EnsureTrailingSlash(opaUrl)), "health");
-            var client = _httpClientFactory.CreateClient();
 
-            using var response = await client.GetAsync(
-                healthUri,
-                HttpCompletionOption.ResponseHeadersRead,
-                cts.Token);
+            using var request = new HttpRequestMessage(HttpMethod.Get, healthUri);
+            using var response = await _httpMessageInvoker.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
             {

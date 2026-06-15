@@ -51,8 +51,6 @@ public static class OpaAuthorizationServiceCollectionExtensions
         // Add HttpContextAccessor if not already registered
         services.TryAddSingleton<Microsoft.AspNetCore.Http.IHttpContextAccessor, Microsoft.AspNetCore.Http.HttpContextAccessor>();
 
-        // Register OPA transport services
-        services.AddHttpClient();
         services.TryAddSingleton<IOpaPolicyEvaluator, OpaPolicyEvaluator>();
 
         // Register the authorization handler
